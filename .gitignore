@@ -24,3 +24,8 @@ proguard/
 
 #Log Files
 *.log
+
+# Micronet files
+a317platformkey.properties
+micronet-platform.keystore
+
