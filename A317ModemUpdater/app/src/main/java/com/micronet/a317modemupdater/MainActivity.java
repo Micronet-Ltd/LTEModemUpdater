@@ -208,14 +208,14 @@ public class MainActivity extends AppCompatActivity {
 
         // Check modem version to see if it is a version that can be updated.
         if (modemFirmwareVersion.contains("20.00.034")) {
-            tvInfo.setText("Device already has updated modem version.");
-            deviceTypeCorrect = false;
+            tvInfo.setText("Device has 20.00.034. Updating to 20.00.034+");
             tvModemType.setText("Modem Type: " + modemType.replace("\n", "").replace("OK", ""));
             tvModemVersion.setText("Modem Version: " + modemFirmwareVersion.replace("\n", "").replace("OK", ""));
-            btnUpdateModem.setEnabled(false);
 
-            mainLayout.setBackgroundColor(Color.GREEN);
-            startRild();
+            deviceTypeCorrect = true;
+            btnUpdateModem.setEnabled(false);
+            updateFileType = 3;
+            updateModem();
         } else if (modemFirmwareVersion.contains("20.00.032-B041")) {
             tvInfo.setText("Device has old modem version. Preparing to update modem.");
             tvModemType.setText("Modem Type: " + modemType.replace("\n", "").replace("OK", ""));
@@ -233,7 +233,7 @@ public class MainActivity extends AppCompatActivity {
             updateFileType = 1;
             updateModem();
         } else {
-            tvInfo.setText("Device's modem cannot be update because there is no update file for this modem version.");
+            tvInfo.setText("Device's modem cannot be updated because there is no update file for this modem version.");
             deviceTypeCorrect = false;
             tvModemType.setText("Modem Type: " + modemType.replace("\n", "").replace("OK", ""));
             tvModemVersion.setText("Modem Version: " + modemFirmwareVersion.replace("\n", "").replace("OK", ""));
@@ -470,7 +470,9 @@ public class MainActivity extends AppCompatActivity {
             updateInputStream = getResources().openRawResource(R.raw.update_file_032_to_034);
         } else if (updateFileType == 2) {
             updateInputStream = getResources().openRawResource(R.raw.update_032_0_b041_034);
-        } else {
+        } else if (updateFileType == 3) {
+            updateInputStream = getResources().openRawResource(R.raw.update_034_to_034);
+        }  else {
             Log.e(TAG, "ERROR: No update file selected properly. Cannot read in update file.");
             return;
         }
