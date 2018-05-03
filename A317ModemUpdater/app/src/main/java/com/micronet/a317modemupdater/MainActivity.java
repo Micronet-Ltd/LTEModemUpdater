@@ -180,19 +180,23 @@ public class MainActivity extends AppCompatActivity {
 
         // Update modem type and version
         tvModemType.setText("Modem Type: " + modemType.replace("\n", "").replace("OK", ""));
-        tvModemVersion.setText("Modem Version: " + modemFirmwareVersion.replace("\n", "").replace("OK", "")
-                + "." + extendedSoftwareVersionNumber.replace("\n", "").replace("OK", "").replace("#CFVR: ", ""));
+        tvModemVersion.setText("Modem Version: " + modemFirmwareVersion.replace("\n", "").replace("AT+CGMR","").replace("OK", "")
+                + "." + extendedSoftwareVersionNumber.replace("\n", "").replace("AT#CFVR","").replace("OK", "").replace("#CFVR: ", ""));
 
         // Currently not using button
         btnUpdateModem.setEnabled(false);
 
         // Check modem version to see if it is a version that can be updated.
-        if (modemFirmwareVersion.contains("20.00.034") && extendedSoftwareVersionNumber.contains("6")) {
-            tvInfo.setText("Device has 20.00.034.6. Device already updated.");
+        if (modemFirmwareVersion.contains("20.00.034") && extendedSoftwareVersionNumber.contains("#CFVR: 10")) {
+            tvInfo.setText("Device has 20.00.034.10. Device already updated.");
             mainLayout.setBackgroundColor(Color.GREEN);
             startRild();
-        } else if (modemFirmwareVersion.contains("20.00.034") && extendedSoftwareVersionNumber.contains("4")) {
-            tvInfo.setText("Device has 20.00.034.4. Updating to 20.00.034.6");
+        } else if (modemFirmwareVersion.contains("20.00.034") && extendedSoftwareVersionNumber.contains("#CFVR: 6")) {
+            tvInfo.setText("Device has 20.00.034.6. Updating to 20.00.034.10.");
+            updateFileType = 4;
+            updateModem();
+        } else if (modemFirmwareVersion.contains("20.00.034") && extendedSoftwareVersionNumber.contains("#CFVR: 4")) {
+            tvInfo.setText("Device has 20.00.034.4. Updating to 20.00.034.10.");
             updateFileType = 3;
             updateModem();
         } else if (modemFirmwareVersion.contains("20.00.032-B041")) {
@@ -253,8 +257,10 @@ public class MainActivity extends AppCompatActivity {
         } else if (updateFileType == 2) {
             updateInputStream = getResources().openRawResource(R.raw.update_032_b041_to_034_4);
         } else if (updateFileType == 3) {
-            updateInputStream = getResources().openRawResource(R.raw.update_034_4_to_034_6);
-        } else {
+            updateInputStream = getResources().openRawResource(R.raw.update_034_4_to_034_10);
+        } else if (updateFileType == 4) {
+            updateInputStream = getResources().openRawResource(R.raw.update_034_6_to_034_10);
+        }else {
             Log.e(TAG, "ERROR: No update file selected properly. Cannot read in update file.");
             return;
         }
@@ -510,16 +516,16 @@ public class MainActivity extends AppCompatActivity {
             writeToPort("AT#CFVR\r");
             final String extendedSoftwareVersionNumber = readFromPort();
 
-            // updateFileType 3 is the only one that updates to 34.6.
-            if (updateFileType != 3) {
-                if (updated.contains("20.00.034") && extendedSoftwareVersionNumber.contains("4")) {
+            // updateFileType 3 and 4 are the only ones that update to 34.10.
+            if (updateFileType != 3 && updateFileType != 4) {
+                if (updated.contains("20.00.034") && extendedSoftwareVersionNumber.contains("#CFVR: 4")) {
                     pass = true;
 
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
-                            tvModemVersion.setText("Modem Version: " + updated.replace("\n", "").replace("OK", "") +
-                                    "." + extendedSoftwareVersionNumber.replace("\n", "").replace("OK", "").replace("#CFVR: ", ""));
+                            tvModemVersion.setText("Modem Version: " + updated.replace("\n", "").replace("AT+CGMR","").replace("OK", "") +
+                                    "." + extendedSoftwareVersionNumber.replace("\n", "").replace("AT#CFVR","").replace("OK", "").replace("#CFVR: ", ""));
                         }
                     });
 
@@ -537,14 +543,14 @@ public class MainActivity extends AppCompatActivity {
                     break;
                 }
             } else {
-                if (updated.contains("20.00.034") && extendedSoftwareVersionNumber.contains("6")) {
+                if (updated.contains("20.00.034") && extendedSoftwareVersionNumber.contains("#CFVR: 10")) {
                     pass = true;
 
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
-                            tvModemVersion.setText("Modem Version: " + updated.replace("\n", "").replace("OK", "") +
-                                    "." + extendedSoftwareVersionNumber.replace("\n", "").replace("OK", "").replace("#CFVR: ", ""));
+                            tvModemVersion.setText("Modem Version: " + updated.replace("\n", "").replace("AT+CGMR","").replace("OK", "") +
+                                    "." + extendedSoftwareVersionNumber.replace("\n", "").replace("AT#CFVR","").replace("OK", "").replace("#CFVR: ", ""));
                         }
                     });
 
@@ -569,8 +575,8 @@ public class MainActivity extends AppCompatActivity {
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        tvModemVersion.setText("Modem Version: " + updated.replace("\n", "").replace("OK", "") +
-                                "." + extendedSoftwareVersionNumber.replace("\n", "").replace("OK", "").replace("#CFVR: ", ""));
+                        tvModemVersion.setText("Modem Version: " + updated.replace("\n", "").replace("AT+CGMR","").replace("OK", "") +
+                                "." + extendedSoftwareVersionNumber.replace("\n", "").replace("AT#CFVR","").replace("OK", "").replace("#CFVR: ", ""));
                     }
                 });
 
@@ -610,10 +616,10 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public void run() {
                     mainLayout.setBackgroundColor(Color.GREEN);
-                    if(updateFileType == 3){
-                        tvInfo.setText("SUCCESS: Device modem updated successfully to 20.00.034.6.");
+                    if(updateFileType == 3 || updateFileType == 4){
+                        tvInfo.setText("SUCCESS: Device modem updated successfully to 20.00.034.10.");
                     }else{
-                        tvInfo.setText("SUCCESS: Device modem updated successfully to 20.00.034.4. Rerun app to update to 20.00.034.6.");
+                        tvInfo.setText("SUCCESS: Device modem updated successfully to 20.00.034.4. Rerun app to update to 20.00.034.10.");
                     }
 
                     startRild();
