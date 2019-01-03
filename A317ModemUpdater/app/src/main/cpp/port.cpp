@@ -73,7 +73,7 @@ static speed_t getBaudrate(jint baudrate)
 
 extern "C"
 JNIEXPORT jobject JNICALL
-Java_com_micronet_a317modemupdater_MainActivity_open(JNIEnv *env, jobject thiz, jstring path, jint baudrate) {
+Java_com_micronet_a317modemupdater_Port_open(JNIEnv *env, jobject thiz, jstring path, jint baudrate) {
     //const char *path = env->GetStringUTFChars(path_, 0);
 
     int fd;
@@ -149,7 +149,7 @@ Java_com_micronet_a317modemupdater_MainActivity_open(JNIEnv *env, jobject thiz, 
 }
 
 extern "C"
-JNIEXPORT void JNICALL Java_com_micronet_a317modemupdater_MainActivity_close
+JNIEXPORT void JNICALL Java_com_micronet_a317modemupdater_Port_close
         (JNIEnv *env, jobject thiz)
 {
     jclass SerialPortClass = env->GetObjectClass(thiz);

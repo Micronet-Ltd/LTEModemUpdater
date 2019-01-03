@@ -1,5 +1,8 @@
 package com.micronet.a317modemupdater;
 
+import static com.micronet.a317modemupdater.Rild.killRild;
+import static com.micronet.a317modemupdater.Rild.startRild;
+
 import android.content.res.Configuration;
 import android.graphics.Color;
 import android.os.Build;
@@ -12,14 +15,11 @@ import android.widget.Button;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileDescriptor;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.util.Arrays;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
@@ -30,12 +30,9 @@ import java.util.concurrent.TimeoutException;
 
 public class MainActivity extends AppCompatActivity {
 
-    private final static String TAG = "ModemUpdater";
+    private final static String TAG = "Updater-Main";
 
-    private File port;
-    private FileInputStream inputStream;
-    private FileOutputStream outputStream;
-    private FileDescriptor mFd;
+    private Port port;
 
     private byte[] readBytes;
     private char[] readChars;
@@ -51,36 +48,49 @@ public class MainActivity extends AppCompatActivity {
     private Button btnUpdateModem;
     private ProgressBar progressBar;
 
-    static {
-        System.loadLibrary("port");
-    }
-
     private ConstraintLayout mainLayout;
-
-    private native static FileDescriptor open(String path, int Baudrate);
-
-    private native void close();
+    private FileOutputStream outputStream;
+    private FileInputStream inputStream;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // Kill rild to be able to communicate with the modem
-        killRild();
-
         // Set up the UI of the application
         setUpApp();
+    }
 
-        // Set up the port and communicate with modem if possible
-        if (setUpPort()) {
-            if (testConnection()) {
-                getModemVersionAndType();
-            } else {
-                tvInfo.setText("Error communicating with the modem. Cannot update modem. Restart and try again.");
-                mainLayout.setBackgroundColor(Color.YELLOW);
-                startRild();
-            }
+    @Override
+    protected void onStart() {
+        super.onStart();
+
+        // Create a new port
+        port = new Port("/dev/ttyACM0");
+
+        // Kill rild to be able to communicate with the modem
+        if(!killRild()){
+            Log.e(TAG, "Error killing rild. Could not properly update modem firmware.");
+            tvInfo.setText("Error killing rild. Could not properly update modem firmware. Reboot device and try again.");
+            tvModemType.setText("");
+            mainLayout.setBackgroundColor(Color.YELLOW);
+            return;
+        }
+
+        // Setup port
+        if(!port.setupPort()){
+            tvInfo.setText("Could not setup the port properly for updating modem firmware. Reboot device and try again.");
+            mainLayout.setBackgroundColor(Color.YELLOW);
+            return;
+        }
+
+        // Test the connection
+        if(port.testConnection()){
+            getModemVersionAndType();
+        }else{
+            tvInfo.setText("Error communicating with the modem. Cannot update modem. Restart and try again. Restarting rild.");
+            mainLayout.setBackgroundColor(Color.YELLOW);
+            startRild();
         }
     }
 
@@ -123,68 +133,21 @@ public class MainActivity extends AppCompatActivity {
                 btnUpdateModem.setEnabled(false);
             }
         });
-
-        btnUpdateModem.setVisibility(View.GONE);
-    }
-
-    private boolean setUpPort() {
-        port = new File("/dev/ttyACM0");
-
-        if (!port.exists()) {
-            Log.e(TAG, "Port does not exist. Could not properly update modem firmware.");
-            tvInfo.setText("Port does not exist. Could not properly update modem firmware. Reboot device and try again.");
-            tvModemType.setText("");
-            mainLayout.setBackgroundColor(Color.YELLOW);
-            startRild();
-            return false;
-        }
-
-        try {
-            // Set up the port with the correct flags.
-            mFd = open("/dev/ttyACM0", 9600);
-            if (mFd == null) {
-                Log.e(TAG, "Could not open the port properly for updating modem firmware.");
-                tvInfo.setText("Could not open the port properly for updating modem firmware. Reboot device and try again.");
-                mainLayout.setBackgroundColor(Color.YELLOW);
-                startRild();
-                return false;
-            }
-            close();
-
-            // Create streams to and from the port
-            inputStream = new FileInputStream(port);
-            outputStream = new FileOutputStream(port);
-        } catch (Exception e) {
-            Log.e(TAG, e.toString());
-        }
-
-        return true;
-    }
-
-    private boolean testConnection() {
-        writeToPort("AT\r");
-        String result = readFromPort();
-        return result.contains("OK");
     }
 
     private void getModemVersionAndType() {
         // Get modem type and version
-        writeToPort("AT+CGMM\r");
-        String modemType = readFromPort();
-
-        writeToPort("AT+CGMR\r");
-        String modemFirmwareVersion = readFromPort();
-
-        writeToPort("AT#CFVR\r");
-        String extendedSoftwareVersionNumber = readFromPort();
+        String modemType = port.writeRead("AT+CGMM\r");
+        String modemFirmwareVersion = port.writeRead("AT+CGMR\r");
+        String extendedSoftwareVersionNumber = port.writeRead("AT#CFVR\r");
 
         // Update modem type and version
         tvModemType.setText("Modem Type: " + modemType.replace("\n", "").replace("OK", ""));
         tvModemVersion.setText("Modem Version: " + modemFirmwareVersion.replace("\n", "").replace("AT+CGMR","").replace("OK", "")
                 + "." + extendedSoftwareVersionNumber.replace("\n", "").replace("AT#CFVR","").replace("OK", "").replace("#CFVR: ", ""));
 
-        // Currently not using button
-        btnUpdateModem.setEnabled(false);
+        inputStream = port.getInputStream();
+        outputStream = port.getOutputStream();
 
         // Check modem version to see if it is a version that can be updated.
         if (modemFirmwareVersion.contains("20.00.034") && extendedSoftwareVersionNumber.contains("#CFVR: 10")) {
@@ -194,19 +157,19 @@ public class MainActivity extends AppCompatActivity {
         } else if (modemFirmwareVersion.contains("20.00.034") && extendedSoftwareVersionNumber.contains("#CFVR: 6")) {
             tvInfo.setText("Device has 20.00.034.6. Updating to 20.00.034.10.");
             updateFileType = 4;
-            updateModem();
+//            updateModem();
         } else if (modemFirmwareVersion.contains("20.00.034") && extendedSoftwareVersionNumber.contains("#CFVR: 4")) {
             tvInfo.setText("Device has 20.00.034.4. Updating to 20.00.034.10.");
             updateFileType = 3;
-            updateModem();
+//            updateModem();
         } else if (modemFirmwareVersion.contains("20.00.032-B041")) {
             tvInfo.setText("Device has 20.00.032-B041. Updating to 20.00.034.4.");
             updateFileType = 2;
-            updateModem();
+//            updateModem();
         } else if (modemFirmwareVersion.contains("20.00.032")) {
             tvInfo.setText("Device has 20.00.032. Updating to 20.00.034.4.");
             updateFileType = 1;
-            updateModem();
+//            updateModem();
         } else {
             tvInfo.setText("Device's modem cannot be updated because there is no update file for this modem version.");
             mainLayout.setBackgroundColor(Color.RED);
@@ -215,12 +178,12 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * Used to detect when an external keyboard has been plugged in or out and makes it so the app does not restart when that happens.
+     * Used to detect when a configuration change happens and makes sure to not restart the app.
      */
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
-        Log.d(TAG, "App kept alive during keyboard plug in and plug out while updating");
+        Log.d(TAG, "App kept alive during configuration change.");
     }
 
     // **************************************************************************************
@@ -641,41 +604,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // **************************************************************************************
-    // **************************************************************************************
-    // ******************************* Modem Communication **********************************
-    // **************************************************************************************
-    // **************************************************************************************
 
-    private void startRild() {
-        try {
-            String commands[] = {"/system/bin/setprop", "ctl.start", "ril-daemon"};
-            Process process = Runtime.getRuntime().exec(commands);
-            BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-            String line;
-            while ((line = bufferedReader.readLine()) != null) {
-                Log.d(TAG, line);
-            }
-            Log.d(TAG, "Rild started");
-        } catch (IOException e) {
-            Log.e(TAG, e.toString());
-        }
-    }
-
-    private void killRild() {
-        try {
-            String commands[] = {"/system/bin/setprop", "ctl.stop", "ril-daemon"};
-            Process process = Runtime.getRuntime().exec(commands);
-            BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-            String line;
-            while ((line = bufferedReader.readLine()) != null) {
-                Log.d(TAG, line);
-            }
-            Log.d(TAG, "Rild killed");
-        } catch (IOException e) {
-            Log.e(TAG, e.toString());
-        }
-    }
 
     /**
      * Reads from the port.
