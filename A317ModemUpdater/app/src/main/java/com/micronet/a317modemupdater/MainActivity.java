@@ -1,11 +1,10 @@
 package com.micronet.a317modemupdater;
 
-import static com.micronet.a317modemupdater.Rild.killRild;
+import static com.micronet.a317modemupdater.Rild.stopRild;
 import static com.micronet.a317modemupdater.Rild.startRild;
 
 import android.content.res.Configuration;
 import android.graphics.Color;
-import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.support.constraint.ConstraintLayout;
@@ -17,8 +16,6 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import java.io.InputStream;
-import java.text.SimpleDateFormat;
-import java.util.Calendar;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -50,11 +47,7 @@ public class MainActivity extends AppCompatActivity {
         new Thread(runnable).start();
     }
 
-    // AT Command Strings
-    private final String PORT_STRING = "/dev/ttyACM0";
-    private final String AT_MODEM_TYPE = "AT+CGMM\r";
-    private final String AT_MODEM_FIRMWARE_VERSION = "AT+CGMR\r";
-    private final String AT_MODEM_EXTENDED_FIRMWARE_VERSION = "AT#CFVR\r";
+    private final String PORT_PATH = "/dev/ttyACM0";
 
     // Modem Firmware Versions
     private final int V20_00_032 = 1;
@@ -63,8 +56,8 @@ public class MainActivity extends AppCompatActivity {
     private final int V20_00_034_6 = 4;
     private final int V20_00_034_10 = 5;
 
-    private final int V20_00_522_7 = 11;
-    private final int V20_00_522_4 = 12;
+    private final int V20_00_522_4 = 11;
+    private final int V20_00_522_7 = 12;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -77,10 +70,10 @@ public class MainActivity extends AppCompatActivity {
         Logger.createNew();
 
         // Create a new port
-        port = new Port(PORT_STRING);
+        port = new Port(PORT_PATH);
 
         // Kill rild to be able to communicate with the modem
-        if(!killRild()){
+        if(!stopRild()){
             Log.e(TAG, "Error killing rild. Could not properly update modem firmware.");
             Logger.addLoggingInfo("Error killing rild. Could not properly update modem firmware.");
             tvInfo.setText("Error killing rild. Could not properly update modem firmware. Reboot device and try again.");
@@ -100,10 +93,10 @@ public class MainActivity extends AppCompatActivity {
         // Test the connection
         if(port.testConnection()){
             Logger.addLoggingInfo("Able to communicate with modem.");
-            getModemVersionAndType();
+            checkIfModemUpdatesAreAvailable();
         }else{
             Logger.addLoggingInfo("Error communicating with the modem. Cannot update modem.");
-            tvInfo.setText("Error communicating with the modem. Cannot update modem. Restart and try again. Restarting rild.");
+            tvInfo.setText("Error communicating with the modem. Cannot update modem.\nRestart and try again. Restarting rild.");
             mainLayout.setBackgroundColor(Color.YELLOW);
             startRild();
         }
@@ -150,32 +143,11 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    private String getModemVersion(){
-        for(int i = 0; i < 10; i++){
-            if(i > 0){
-                port.skipAvailable();
-            }
-
-            String modemFirmwareVersion = port.writeRead(AT_MODEM_FIRMWARE_VERSION);
-            String extendedSoftwareVersionNumber = port.writeRead(AT_MODEM_EXTENDED_FIRMWARE_VERSION);
-
-            String modemVersion = formatModemVersion(modemFirmwareVersion, extendedSoftwareVersionNumber).trim();
-
-            if(modemVersion.matches("\\d+\\.\\d+\\.\\d+.\\d+")){
-                return modemVersion;
-            }
-        }
-
-        // TODO handle error
-        return "";
-    }
-
-    private void getModemVersionAndType() {
+    private void checkIfModemUpdatesAreAvailable() {
         // Get modem type and version
-        String modemType = port.writeRead(AT_MODEM_TYPE);
-        String modemFirmwareVersion = getModemVersion();
-
-        String modemTypeDisplay = "Modem Type: " + modemType.replace("\n", "").replace("OK", "");
+        String modemType = port.getModemType();
+        String modemFirmwareVersion = port.getModemVersion();
+        String modemTypeDisplay = "Modem Type: " + modemType;
         String modemVersionDisplay = "Modem Version: " + modemFirmwareVersion;
 
         // Update modem type and version
@@ -185,64 +157,78 @@ public class MainActivity extends AppCompatActivity {
         Logger.addLoggingInfo(modemTypeDisplay);
         Logger.addLoggingInfo(modemVersionDisplay);
 
-        if(modemType.contains("LE910-SVL")){
-            if (modemFirmwareVersion.equals("20.00.034.10")) {
-                tvInfo.setText("Device has 20.00.034.10. Device already updated.");
-                mainLayout.setBackgroundColor(Color.GREEN);
-                Logger.addLoggingInfo("Device has 20.00.034.10. Device already updated.");
-                startRild();
-            } else if (modemFirmwareVersion.equals("20.00.034.6")) {
-                tvInfo.setText("Device has 20.00.034.6. Updating to 20.00.034.10.");
-                updateFileType = V20_00_034_6;
-                Logger.addLoggingInfo("Device has 20.00.034.6. Updating to 20.00.034.10.");
-//            updateModem();
-            } else if (modemFirmwareVersion.equals("20.00.034.4")) {
-                tvInfo.setText("Device has 20.00.034.4. Updating to 20.00.034.10.");
-                Logger.addLoggingInfo("Device has 20.00.034.4. Updating to 20.00.034.10.");
-                updateFileType = V20_00_034_4;
-//            updateModem();
-            } else if (modemFirmwareVersion.contains("20.00.032-B041")) {
-                tvInfo.setText("Device has 20.00.032-B041. Updating to 20.00.034.4.");
-                Logger.addLoggingInfo("Device has 20.00.032-B041. Updating to 20.00.034.4.");
-                updateFileType = V20_00_032_B041;
-//            updateModem();
-            } else if (modemFirmwareVersion.contains("20.00.032")) {
-                tvInfo.setText("Device has 20.00.032. Updating to 20.00.034.4.");
-                Logger.addLoggingInfo("Device has 20.00.032. Updating to 20.00.034.4.");
-                updateFileType = V20_00_032;
-//            updateModem();
-            } else {
-                tvInfo.setText("Device's modem cannot be updated because there is no update file for this modem version.");
+        switch(modemType){
+            case "LE910-SVL":
+                if (modemFirmwareVersion.equals("20.00.034.10")) {
+                    tvInfo.setText("Device has 20.00.034.10. Device already updated.");
+                    mainLayout.setBackgroundColor(Color.GREEN);
+                    Logger.addLoggingInfo("Device has 20.00.034.10. Device already updated.");
+                    startRild();
+
+                    Logger.uploadLog(this);
+                } else if (modemFirmwareVersion.equals("20.00.034.6")) {
+                    tvInfo.setText("Device has 20.00.034.6. Updating to 20.00.034.10.");
+                    updateFileType = V20_00_034_6;
+                    Logger.addLoggingInfo("Device has 20.00.034.6. Updating to 20.00.034.10.");
+//                  updateModem();
+                } else if (modemFirmwareVersion.equals("20.00.034.4")) {
+                    tvInfo.setText("Device has 20.00.034.4. Updating to 20.00.034.10.");
+                    Logger.addLoggingInfo("Device has 20.00.034.4. Updating to 20.00.034.10.");
+                    updateFileType = V20_00_034_4;
+//                  updateModem();
+                } else if (modemFirmwareVersion.contains("20.00.032-B041")) {
+                    tvInfo.setText("Device has 20.00.032-B041. Updating to 20.00.034.4.");
+                    Logger.addLoggingInfo("Device has 20.00.032-B041. Updating to 20.00.034.4.");
+                    updateFileType = V20_00_032_B041;
+//                  updateModem();
+                } else if (modemFirmwareVersion.contains("20.00.032")) {
+                    tvInfo.setText("Device has 20.00.032. Updating to 20.00.034.4.");
+                    Logger.addLoggingInfo("Device has 20.00.032. Updating to 20.00.034.4.");
+                    updateFileType = V20_00_032;
+//                  updateModem();
+                } else {
+                    tvInfo.setText("Device's modem cannot be updated because there is no update file for this modem version.");
+                    mainLayout.setBackgroundColor(Color.RED);
+                    Logger.addLoggingInfo("Device's modem cannot be updated because there is no update file for this modem version.");
+                    startRild();
+
+                    Logger.uploadLog(this);
+                }
+                break;
+            case "LE910-NA1":
+                if (modemFirmwareVersion.equals("20.00.522.7")) {
+                    tvInfo.setText("Device has 20.00.522.7. Need to add update for this firmware.");
+                    updateFileType = V20_00_522_7;
+                    mainLayout.setBackgroundColor(Color.YELLOW);
+                    Logger.addLoggingInfo("Device has 20.00.522.7. Need to add update for this firmware.");
+                    startRild();
+
+                    Logger.uploadLog(this);
+                } else if (modemFirmwareVersion.equals("20.00.522.4")) {
+                    tvInfo.setText("Device has 20.00.522.4. Need to add update for this firmware.");
+                    updateFileType = V20_00_522_4;
+                    mainLayout.setBackgroundColor(Color.YELLOW);
+                    Logger.addLoggingInfo("Device has 20.00.522.4. Need to add update for this firmware.");
+                    startRild();
+
+                    Logger.uploadLog(this);
+                } else {
+                    tvInfo.setText("Device's modem cannot be updated because there is no update file for this modem version.");
+                    mainLayout.setBackgroundColor(Color.RED);
+                    Logger.addLoggingInfo("Device's modem cannot be updated because there is no update file for this modem version.");
+                    startRild();
+
+                    Logger.uploadLog(this);
+                }
+                break;
+            default:
+                tvInfo.setText("Device's modem cannot be updated because there is no update file for this modem type.");
                 mainLayout.setBackgroundColor(Color.RED);
                 Logger.addLoggingInfo("Device's modem cannot be updated because there is no update file for this modem version.");
-                startRild();
-            }
-        }else if(modemType.contains("LE910-NA1")){
-            if (modemFirmwareVersion.equals("20.00.522.7")) {
-                tvInfo.setText("Device has 20.00.522.7. Need to add update for this firmware.");
-                updateFileType = V20_00_522_7;
-                mainLayout.setBackgroundColor(Color.YELLOW);
-                Logger.addLoggingInfo("Device has 20.00.522.7. Need to add update for this firmware.");
-                startRild();
-            } else if (modemFirmwareVersion.equals("20.00.522.4")) {
-                tvInfo.setText("Device has 20.00.522.4. Need to add update for this firmware.");
-                updateFileType = V20_00_522_4;
-                mainLayout.setBackgroundColor(Color.YELLOW);
-                Logger.addLoggingInfo("Device has 20.00.522.4. Need to add update for this firmware.");
                 startRild();
 
                 Logger.uploadLog(this);
-            } else {
-                tvInfo.setText("Device's modem cannot be updated because there is no update file for this modem version.");
-                mainLayout.setBackgroundColor(Color.RED);
-                Logger.addLoggingInfo("Device's modem cannot be updated because there is no update file for this modem version.");
-                startRild();
-            }
-        }else{
-            tvInfo.setText("Device's modem cannot be updated because there is no update file for this modem version.");
-            mainLayout.setBackgroundColor(Color.RED);
-            Logger.addLoggingInfo("Device's modem cannot be updated because there is no update file for this modem version.");
-            startRild();
+                break;
         }
     }
 
@@ -335,6 +321,7 @@ public class MainActivity extends AppCompatActivity {
                     setSendProgress(packetsSent);
                 } catch (Exception e) {
                     Log.e(TAG, e.toString());
+                    Logger.addLoggingInfo("Error sending delta: " + e.toString());
                     break;
                 }
             } else { // Final send
@@ -348,6 +335,7 @@ public class MainActivity extends AppCompatActivity {
                     setSendProgress(packetsSent);
                 } catch (Exception e) {
                     Log.e(TAG, e.toString());
+                    Logger.addLoggingInfo("Error sending delta: " + e.toString());
                     break;
                 }
             }
@@ -411,7 +399,7 @@ public class MainActivity extends AppCompatActivity {
         sleep(30000);
 
         for (int i = 0; i < 90; i++) {
-            port = new Port("/dev/ttyACM0");
+            port = new Port(PORT_PATH);
 
             if (!port.exists()) {
                 Log.e(TAG, "Loop: " + i + ", Port does not exist. Sleeping then checking next iteration.");
@@ -427,44 +415,44 @@ public class MainActivity extends AppCompatActivity {
                 continue;
             }
 
-            final String updated = port.writeRead("AT+CGMR\r");
-            final String extendedSoftwareVersionNumber = port.writeRead("AT#CFVR\r");
+            final String updatedSoftwareVersion = port.writeRead("AT+CGMR\r");
+            final String updatedExtendedSoftwareVersion = port.writeRead("AT#CFVR\r");
 
             // updateFileType 1 and 2 should go to 20.00.034.4
             // updateFileType 3 and 4 should go to 20.00.034.10
             if (updateFileType == 1 || updateFileType == 2) {
-                if (updated.contains("20.00.034") && extendedSoftwareVersionNumber.contains("#CFVR: 4")) { // Modem updated successfully
+                if (updatedSoftwareVersion.contains("20.00.034") && updatedExtendedSoftwareVersion.contains("#CFVR: 4")) { // Modem updated successfully
                     pass = true;
-                    updateTvModemVersion(formatModemVersion(updated, extendedSoftwareVersionNumber));
+                    updateTvModemVersion(formatModemVersion(updatedSoftwareVersion, updatedExtendedSoftwareVersion));
 
                     port.closePort();
-                    Log.d(TAG, "Loop: " + i + ", Str is: " + updated);
+                    Log.d(TAG, "Loop: " + i + ", Str is: " + updatedSoftwareVersion);
                     Log.d(TAG, "Version updated successfully.");
                     break;
-                } else if (updated.contains("20.00.032") || updated.contains("20.00.032-B041")){ // Modem not updated successfully
-                    updateTvModemVersion(formatModemVersion(updated, extendedSoftwareVersionNumber));
+                } else if (updatedSoftwareVersion.contains("20.00.032") || updatedSoftwareVersion.contains("20.00.032-B041")){ // Modem not updated successfully
+                    updateTvModemVersion(formatModemVersion(updatedSoftwareVersion, updatedExtendedSoftwareVersion));
 
                     port.closePort();
 
-                    Log.d(TAG, "Loop: " + i + ", Str is: " + updated);
+                    Log.d(TAG, "Loop: " + i + ", Str is: " + updatedSoftwareVersion);
                     Log.d(TAG, "Version not updated successfully");
                     break;
                 }
             } else if (updateFileType == 3 || updateFileType == 4){
-                if (updated.contains("20.00.034") && extendedSoftwareVersionNumber.contains("#CFVR: 10")) { // Modem updated successfully
+                if (updatedSoftwareVersion.contains("20.00.034") && updatedExtendedSoftwareVersion.contains("#CFVR: 10")) { // Modem updated successfully
                     pass = true;
-                    updateTvModemVersion(formatModemVersion(updated, extendedSoftwareVersionNumber));
+                    updateTvModemVersion(formatModemVersion(updatedSoftwareVersion, updatedExtendedSoftwareVersion));
 
                     port.closePort();
-                    Log.d(TAG, "Loop: " + i + ", Str is: " + updated);
+                    Log.d(TAG, "Loop: " + i + ", Str is: " + updatedSoftwareVersion);
                     Log.d(TAG, "Version updated successfully.");
                     break;
                 }
             }
 
             port.closePort();
-            Log.d(TAG, "Loop: " + i + ", Str is: " + updated);
-            Logger.addLoggingInfo("Loop: " + i + ", Str is: " + updated);
+            Log.d(TAG, "Loop: " + i + ", Str is: " + updatedSoftwareVersion);
+            Logger.addLoggingInfo("Loop: " + i + ", Str is: " + updatedSoftwareVersion);
 
             sleep(3000);
         }
@@ -548,4 +536,6 @@ public class MainActivity extends AppCompatActivity {
             }
         });
     }
+
+
 }

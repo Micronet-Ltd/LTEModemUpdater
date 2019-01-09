@@ -5,7 +5,6 @@ import static org.junit.Assert.*;
 import android.content.Context;
 import android.support.test.InstrumentationRegistry;
 import android.telephony.TelephonyManager;
-import com.dropbox.core.v2.sharing.InsufficientPlan;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -19,10 +18,11 @@ public class DropBoxTest {
     }
 
     @Test
-    public void uploadFile() {
+    public void multipleUploadFile() {
         TelephonyManager telephonyManager = (TelephonyManager) InstrumentationRegistry.getContext().getSystemService(Context.TELEPHONY_SERVICE);
         for(int i = 0; i < 10; i++){
-            assertTrue(dropBox.uploadFile(telephonyManager.getDeviceId(), "This is " + i));
+            // Needs to have a connection to the internet to pass
+            assertTrue(dropBox.uploadFile(telephonyManager.getDeviceId(), "This is " + i + "."));
         }
     }
 }

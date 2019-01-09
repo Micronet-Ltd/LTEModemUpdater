@@ -6,6 +6,7 @@ import android.telephony.TelephonyManager;
 import android.util.Log;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.Locale;
 
 class Logger {
     private static final String TAG = "Updater-Logger";
@@ -16,7 +17,7 @@ class Logger {
     }
 
     static synchronized void addLoggingInfo(String info){
-        String temp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(Calendar.getInstance().getTime()) + ": "
+        String temp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Calendar.getInstance().getTime()) + ": "
                 + info.replaceAll("\n+", "\n") + "\n";
 
         stringBuffer.append(temp);
@@ -26,7 +27,7 @@ class Logger {
         return stringBuffer.toString();
     }
 
-    // Don't need to worry about the runtime permission because we are at API 15
+    // Don't need to worry about the runtime permission because this app is only running on devices with API level 15
     @SuppressLint("MissingPermission")
     static synchronized void uploadLog(final Context context){
         TelephonyManager telephonyManager = (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
@@ -47,16 +48,16 @@ class Logger {
                     Log.e(TAG, e.toString());
                 }
 
-                // Initially 10 secs
+                // Initially timeout 10 secs
                 int timeoutPeriod = 10000;
                 DropBox dropBox = new DropBox(context);
                 for(int i = 0; i < 5; i++){
                     for(int j = 0; j < 8; j++){
                         if(dropBox.uploadFile(imei, stringBuffer.toString())){
-                            Log.d(TAG, "Successfully uploaded logging information.");
+                            Log.i(TAG, "Successfully uploaded logging information.");
                             return;
                         }else{
-                            Log.d(TAG, "Not able to upload logging information at this time.");
+                            Log.i(TAG, "Not able to upload logging information at this time. Trying again.");
                             try {
                                 Thread.sleep(timeoutPeriod);
                             } catch (InterruptedException e) {
@@ -68,6 +69,9 @@ class Logger {
                     // Adjust timeout period
                     timeoutPeriod *= 2;
                 }
+
+                Log.e(TAG, "Not able to upload logging information.");
+                // TODO Handle this error
             }
         }).start();
     }

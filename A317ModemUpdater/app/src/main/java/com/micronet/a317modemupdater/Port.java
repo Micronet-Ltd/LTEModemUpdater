@@ -4,6 +4,7 @@ import static com.micronet.a317modemupdater.Rild.startRild;
 
 import android.util.Log;
 import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileDescriptor;
 import java.io.FileInputStream;
@@ -23,8 +24,8 @@ class Port {
 
     private File port;
 
-    private FileInputStream inputStream;
-    private FileOutputStream outputStream;
+    private BufferedInputStream inputStream;
+    private BufferedOutputStream outputStream;
     private FileDescriptor mFd;
 
     private byte[] readBytes;
@@ -48,8 +49,8 @@ class Port {
     boolean openPort(){
         try {
             // Create streams to and from the port
-            inputStream = new FileInputStream(port);
-            outputStream = new FileOutputStream(port);
+            inputStream = new BufferedInputStream(new FileInputStream(port));
+            outputStream = new BufferedOutputStream(new FileOutputStream(port));
         } catch (Exception e) {
             Log.e(TAG, e.toString());
 
@@ -94,8 +95,8 @@ class Port {
             close();
 
             // Create streams to and from the port
-            inputStream = new FileInputStream(port);
-            outputStream = new FileOutputStream(port);
+            inputStream = new BufferedInputStream(new FileInputStream(port));
+            outputStream = new BufferedOutputStream(new FileOutputStream(port));
         } catch (Exception e) {
             Log.e(TAG, e.toString());
             Logger.addLoggingInfo("Error setting up port: " + e.toString());
@@ -110,9 +111,64 @@ class Port {
      * @return whether a connection was made with the modem
      */
     boolean testConnection(){
-        writeToPort("AT\r");
-        String result = readFromPort();
-        return result.contains("OK");
+        // Try up to 10 times to test connection
+        for(int i = 0; i < 10; i++){
+            String output = writeRead("AT\r");
+
+            // Output must contain "OK"
+            if(output.contains("OK")){
+                Log.d(TAG, "Able to communicate with modem.");
+                return true;
+            }
+        }
+
+        Log.e(TAG, "Error: unable to communicate with modem.");
+        return false;
+    }
+
+    String getModemType(){
+        // Try 10 times to get the correct modem type
+        for(int i = 0; i < 10; i++){
+            String modemType = writeRead("AT+CGMM\r").replace("\n", "").replace("OK", "");
+
+            // Modem type must match something like LE910-NA1
+            if(modemType.matches("\\w+-\\w+")){
+                Log.d(TAG, "Modem type is " + modemType);
+                return modemType;
+            }
+        }
+
+        Log.e(TAG, "Error: modem type is unknown.");
+        return "UNKNOWN";
+    }
+
+    String getModemVersion(){
+        // Try 10 times to get the correct modem version
+        for(int i = 0; i < 10; i++){
+            String modemFirmwareVersion = writeRead("AT+CGMR\r");
+            String extendedSoftwareVersionNumber = writeRead("AT#CFVR\r");
+
+            String modemVersion = formatModemVersion(modemFirmwareVersion, extendedSoftwareVersionNumber).trim();
+
+            // modemVersion must match something like 20.00.522.7
+            if(modemVersion.matches("\\d+\\.\\d+\\.\\d+.\\d+")){
+                Log.d(TAG, "Modem version is " + modemVersion);
+                return modemVersion;
+            }
+        }
+
+        Log.e(TAG, "Error: modem version is unknown.");
+        return "UNKNOWN";
+    }
+
+    private String formatModemVersion(String modemVersion, String extendedVersion){
+        return modemVersion.replace("\n", "")
+                .replace("AT+CGMR","")
+                .replace("OK", "") + "." +
+                extendedVersion.replace("\n", "")
+                        .replace("AT#CFVR","")
+                        .replace("OK", "")
+                        .replace("#CFVR: ", "");
     }
 
     void write(byte[] arr, int off, int len) throws IOException {
@@ -122,7 +178,7 @@ class Port {
 
     String writeRead(String output){
         writeToPort(output);
-        return readFromPort();
+        return readFromPort(8000);
     }
 
     String writeExtendedRead(String output, String extended){
@@ -133,7 +189,7 @@ class Port {
 
     private void writeToPort(String stringToWrite) {
         try {
-            skipAvailable();
+            skipAvailable(500);
 
             outputStream.write(stringToWrite.getBytes());
             outputStream.flush();
@@ -145,47 +201,24 @@ class Port {
         }
     }
 
-    void skipAvailable() {
-        readBytes = new byte[2056];
-
+    void skipAvailable(int timeout) {
+        long start = System.currentTimeMillis();
         try {
-
-            if (inputStream.available() > 0) {
-
-                Callable<Integer> readTask = new Callable<Integer>() {
-                    @Override
-                    public Integer call() throws Exception {
-                        return inputStream.read(readBytes);
-                    }
-                };
-
-                ExecutorService executor = Executors.newFixedThreadPool(1);
-
-                Future<Integer> future = executor.submit(readTask);
-                // Give read two seconds to finish so it won't block for forever
-                int numBytesRead = future.get(1000, TimeUnit.MILLISECONDS);
-
-                readChars = new char[numBytesRead];
-                byte[] onlyReadBytes = new byte[numBytesRead];
-
-                for (int i = 0; i < numBytesRead; i++) {
-                    readChars[i] = (char) readBytes[i];
-                    onlyReadBytes[i] = readBytes[i];
+            while(System.currentTimeMillis() - start < timeout){
+                int available = inputStream.available();
+                if(available > 0){
+                    long skipped = inputStream.skip(available);
+                    Log.i(TAG, String.format("Skipped %d bytes", skipped));
                 }
 
-                String readString = new String(readChars);
-
-                Log.d(TAG, "Received and skipped: " + readString + ". Received Bytes: " + Arrays.toString(onlyReadBytes));
-                Logger.addLoggingInfo("SKIPPED - " + readString);
+                Thread.sleep(50);
             }
-        } catch (TimeoutException e) {
-            Log.e(TAG, "Skip available timed out..");
         } catch (Exception e) {
             Log.e(TAG, e.toString());
         }
     }
 
-    private String readFromPort() {
+    private String readFromPort(int timeout) {
         readBytes = new byte[2056];
 
         try {
@@ -200,7 +233,7 @@ class Port {
 
             Future<Integer> future = executor.submit(readTask);
             // Give read eight seconds to finish so it won't block for forever
-            int numBytesRead = future.get(8000, TimeUnit.MILLISECONDS);
+            int numBytesRead = future.get(timeout, TimeUnit.MILLISECONDS);
 
             if (numBytesRead == -1) {
                 return "";
@@ -221,11 +254,11 @@ class Port {
             }
 
         } catch (TimeoutException te) {
-            Log.e(TAG, "Timeout exception in read...");
-            return "error timeout exception";
+            Log.i(TAG, "Timeout exception in read...");
+            return "ERROR";
         } catch (Exception e) {
             Log.e(TAG, e.toString());
-            return "error";
+            return "ERROR";
         }
 
     }
