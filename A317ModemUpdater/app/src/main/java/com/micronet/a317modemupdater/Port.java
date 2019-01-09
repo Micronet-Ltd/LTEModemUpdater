@@ -3,10 +3,12 @@ package com.micronet.a317modemupdater;
 import static com.micronet.a317modemupdater.Rild.startRild;
 
 import android.util.Log;
+import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileDescriptor;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
@@ -20,17 +22,13 @@ class Port {
     private static final String TAG = "Updater-Port";
 
     private File port;
+
     private FileInputStream inputStream;
     private FileOutputStream outputStream;
     private FileDescriptor mFd;
 
     private byte[] readBytes;
     private char[] readChars;
-    private byte[] updateFileBytes;
-    private int totalUpdateFileSize;
-    private int updateFileType;
-    final int NUM_BYTES_TO_SEND = 4096;
-    int packetsSent = 0;
 
     static {
         System.loadLibrary("port");
@@ -39,21 +37,47 @@ class Port {
     private native static FileDescriptor open(String path, int Baudrate);
     private native void close();
 
-    public Port(String path){
+    Port(String path){
         port = new File(path);
     }
 
-    FileInputStream getInputStream() {
-        return inputStream;
+    boolean exists(){
+        return port.exists();
     }
 
-    FileOutputStream getOutputStream() {
-        return outputStream;
+    boolean openPort(){
+        try {
+            // Create streams to and from the port
+            inputStream = new FileInputStream(port);
+            outputStream = new FileOutputStream(port);
+        } catch (Exception e) {
+            Log.e(TAG, e.toString());
+
+            Logger.addLoggingInfo("Error opening port: " + e.toString());
+            return false;
+        }
+
+        Logger.addLoggingInfo("Port opened successfully");
+        return true;
+    }
+
+    void closePort(){
+        try {
+            // Create streams to and from the port
+            inputStream.close();
+            outputStream.close();
+        } catch (Exception e) {
+            Log.e(TAG, e.toString());
+            Logger.addLoggingInfo("Error closing port: " + e.toString());
+        }
+        Logger.addLoggingInfo("Port closed successfully");
     }
 
     boolean setupPort(){
         if (!port.exists()) {
             Log.e(TAG, "Port does not exist. Could not properly update modem firmware. Restarting rild.");
+            Logger.addLoggingInfo("Port does not exist. Could not properly update modem firmware. Restarting rild.");
+
             startRild();
             return false;
         }
@@ -63,6 +87,7 @@ class Port {
             mFd = open("/dev/ttyACM0", 9600);
             if (mFd == null) {
                 Log.e(TAG, "Could not open the port properly for updating modem firmware. Restarting rild.");
+                Logger.addLoggingInfo("Could not open the port properly for updating modem firmware. Restarting rild.");
                 startRild();
                 return false;
             }
@@ -73,8 +98,10 @@ class Port {
             outputStream = new FileOutputStream(port);
         } catch (Exception e) {
             Log.e(TAG, e.toString());
+            Logger.addLoggingInfo("Error setting up port: " + e.toString());
         }
 
+        Logger.addLoggingInfo("Successfully setup port");
         return true;
     }
 
@@ -88,9 +115,19 @@ class Port {
         return result.contains("OK");
     }
 
+    void write(byte[] arr, int off, int len) throws IOException {
+        outputStream.write(arr, off, len);
+        outputStream.flush();
+    }
+
     String writeRead(String output){
         writeToPort(output);
         return readFromPort();
+    }
+
+    String writeExtendedRead(String output, String extended){
+        writeToPort(output);
+        return readFromPortExtended(extended);
     }
 
 
@@ -102,12 +139,13 @@ class Port {
             outputStream.flush();
 
             Log.d(TAG, "Sent: " + stringToWrite + ". Sent Bytes: " + Arrays.toString(stringToWrite.getBytes()));
+            Logger.addLoggingInfo("WRITE - " + stringToWrite);
         } catch (Exception e) {
             Log.e(TAG, e.toString());
         }
     }
 
-    private void skipAvailable() {
+    void skipAvailable() {
         readBytes = new byte[2056];
 
         try {
@@ -138,6 +176,7 @@ class Port {
                 String readString = new String(readChars);
 
                 Log.d(TAG, "Received and skipped: " + readString + ". Received Bytes: " + Arrays.toString(onlyReadBytes));
+                Logger.addLoggingInfo("SKIPPED - " + readString);
             }
         } catch (TimeoutException e) {
             Log.e(TAG, "Skip available timed out..");
@@ -150,7 +189,6 @@ class Port {
         readBytes = new byte[2056];
 
         try {
-
             Callable<Integer> readTask = new Callable<Integer>() {
                 @Override
                 public Integer call() throws Exception {
@@ -161,7 +199,7 @@ class Port {
             ExecutorService executor = Executors.newFixedThreadPool(1);
 
             Future<Integer> future = executor.submit(readTask);
-            // Give read two seconds to finish so it won't block for forever
+            // Give read eight seconds to finish so it won't block for forever
             int numBytesRead = future.get(8000, TimeUnit.MILLISECONDS);
 
             if (numBytesRead == -1) {
@@ -178,7 +216,7 @@ class Port {
                 String readString = new String(readChars);
 
                 Log.d(TAG, "Received: " + readString + ". Received Bytes: " + Arrays.toString(onlyReadBytes));
-
+                Logger.addLoggingInfo("READ - " + readString);
                 return readString;
             }
 
@@ -252,6 +290,8 @@ class Port {
             Log.e(TAG, "Looking for " + str + ", " + e.toString());
             return sb.toString();
         }
+
+        Logger.addLoggingInfo("READ - " + sb.toString());
 
         return sb.toString();
     }
