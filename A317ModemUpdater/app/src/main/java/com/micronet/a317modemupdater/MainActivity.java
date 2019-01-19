@@ -110,6 +110,15 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+
+        if(Logger.db != null && Logger.db.isOpen()){
+            Logger.db.close();
+        }
+    }
+
     /**
      * Used to detect when a configuration change happens and makes sure to not restart the app.
      */
@@ -178,22 +187,22 @@ public class MainActivity extends AppCompatActivity {
                     tvInfo.setText("Device has 20.00.034.6. Updating to 20.00.034.10.");
                     updateFileType = V20_00_034_6;
                     Logger.addLoggingInfo("Device has 20.00.034.6. Updating to 20.00.034.10.");
-                  updateModem();
+                    updateModem();
                 } else if (modemFirmwareVersion.equals("20.00.034.4")) {
                     tvInfo.setText("Device has 20.00.034.4. Updating to 20.00.034.10.");
                     Logger.addLoggingInfo("Device has 20.00.034.4. Updating to 20.00.034.10.");
                     updateFileType = V20_00_034_4;
-                  updateModem();
+                    updateModem();
                 } else if (modemFirmwareVersion.contains("20.00.032-B041")) {
                     tvInfo.setText("Device has 20.00.032-B041. Updating to 20.00.034.4.");
                     Logger.addLoggingInfo("Device has 20.00.032-B041. Updating to 20.00.034.4.");
                     updateFileType = V20_00_032_B041;
-                  updateModem();
+                    updateModem();
                 } else if (modemFirmwareVersion.contains("20.00.032")) {
                     tvInfo.setText("Device has 20.00.032. Updating to 20.00.034.4.");
                     Logger.addLoggingInfo("Device has 20.00.032. Updating to 20.00.034.4.");
                     updateFileType = V20_00_032;
-                  updateModem();
+                    updateModem();
                 } else {
                     tvInfo.setText("Device's modem cannot be updated because there is no update file for this modem version.");
                     mainLayout.setBackgroundColor(Color.RED);

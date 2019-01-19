@@ -25,7 +25,7 @@ class Logger {
     private static StringBuffer stringBuffer;
     private static String imei;
     private static String serial;
-    private static LogDatabase db;
+    static LogDatabase db;
     private static ExecutorService executorService;
 
     /**

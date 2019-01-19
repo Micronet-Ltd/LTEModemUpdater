@@ -2,6 +2,7 @@ package com.micronet.a317modemupdater;
 
 import static org.junit.Assert.*;
 
+import android.support.test.InstrumentationRegistry;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -9,7 +10,7 @@ public class RildTest {
 
     @Before
     public void setUp(){
-        Logger.createNew();
+        Logger.createNew(InstrumentationRegistry.getContext());
     }
 
     @Test

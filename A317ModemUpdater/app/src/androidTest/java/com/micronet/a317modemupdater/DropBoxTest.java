@@ -22,7 +22,7 @@ public class DropBoxTest {
         TelephonyManager telephonyManager = (TelephonyManager) InstrumentationRegistry.getContext().getSystemService(Context.TELEPHONY_SERVICE);
         for(int i = 0; i < 10; i++){
             // Needs to have a connection to the internet to pass
-            assertTrue(dropBox.uploadLogs(telephonyManager.getDeviceId(), "This is " + i + "."));
+            assertTrue(dropBox.uploadLogs("FAKE_TIME_TEST", telephonyManager.getDeviceId(), "This is " + i + ".", true));
         }
     }
 }
