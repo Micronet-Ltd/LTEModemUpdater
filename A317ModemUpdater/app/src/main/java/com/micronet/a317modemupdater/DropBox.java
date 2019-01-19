@@ -25,13 +25,10 @@ class DropBox {
         client = new DbxClientV2(config, ACCESS_TOKEN);
     }
 
-    boolean uploadFile(String imei, String data){
+    boolean uploadLogs(String dt, String id, String data, boolean pass){
         try {
-            // Get datetime
-            String dt = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Calendar.getInstance().getTime());
-
             InputStream in = new ByteArrayInputStream(data.getBytes(Charset.forName("UTF-8")));
-            FileMetadata metadata = client.files().uploadBuilder("/a317ModemUpdater/" + imei + "/" + dt + ".txt").withMode(WriteMode.ADD)
+            FileMetadata metadata = client.files().uploadBuilder("/a317ModemUpdater/" + id + "/" + (pass? "PASS ":"FAIL ") + dt + ".txt").withMode(WriteMode.ADD)
                     .withAutorename(true).uploadAndFinish(in);
         }catch (NetworkIOException e){
 //            Log.d(TAG, "Error: no network connection - " + e.toString());

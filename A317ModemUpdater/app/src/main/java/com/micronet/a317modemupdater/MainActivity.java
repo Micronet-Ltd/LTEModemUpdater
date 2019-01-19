@@ -49,6 +49,10 @@ public class MainActivity extends AppCompatActivity {
 
     private final String PORT_PATH = "/dev/ttyACM0";
 
+    enum FirmwareVersions{
+        V20_00_032, V20_00_032_B041, V20_00_034_4, V20_00_034_6, V20_00_034_10, V20_00_522_4, V20_00_522_7
+    }
+
     // Modem Firmware Versions
     private final int V20_00_032 = 1;
     private final int V20_00_032_B041 = 2;
@@ -67,7 +71,7 @@ public class MainActivity extends AppCompatActivity {
         setUpUi();
 
         // Create a new logging object
-        Logger.createNew();
+        Logger.createNew(this);
 
         // Create a new port
         port = new Port(PORT_PATH);
@@ -79,6 +83,7 @@ public class MainActivity extends AppCompatActivity {
             tvInfo.setText("Error killing rild. Could not properly update modem firmware. Reboot device and try again.");
             tvModemType.setText("");
             mainLayout.setBackgroundColor(Color.YELLOW);
+            Logger.uploadLogs(this, false, "FAIL\nCouldn't stop rild properly.\n\n");
             return;
         }
 
@@ -87,6 +92,7 @@ public class MainActivity extends AppCompatActivity {
             Logger.addLoggingInfo("Could not setup the port properly for updating modem firmware.");
             tvInfo.setText("Could not setup the port properly for updating modem firmware. Reboot device and try again.");
             mainLayout.setBackgroundColor(Color.YELLOW);
+            Logger.uploadLogs(this, false, "FAIL\nCouldn't set up port properly to communicate with modem.\n\n");
             return;
         }
 
@@ -99,6 +105,8 @@ public class MainActivity extends AppCompatActivity {
             tvInfo.setText("Error communicating with the modem. Cannot update modem.\nRestart and try again. Restarting rild.");
             mainLayout.setBackgroundColor(Color.YELLOW);
             startRild();
+
+            Logger.uploadLogs(this, false, "FAIL\nCouldn't communicate with modem.\n\n");
         }
     }
 
@@ -165,34 +173,34 @@ public class MainActivity extends AppCompatActivity {
                     Logger.addLoggingInfo("Device has 20.00.034.10. Device already updated.");
                     startRild();
 
-                    Logger.uploadLog(this);
+                    Logger.uploadLogs(this, true, "OK\nDevice already updated to 20.00.034.10.\n\n");
                 } else if (modemFirmwareVersion.equals("20.00.034.6")) {
                     tvInfo.setText("Device has 20.00.034.6. Updating to 20.00.034.10.");
                     updateFileType = V20_00_034_6;
                     Logger.addLoggingInfo("Device has 20.00.034.6. Updating to 20.00.034.10.");
-//                  updateModem();
+                  updateModem();
                 } else if (modemFirmwareVersion.equals("20.00.034.4")) {
                     tvInfo.setText("Device has 20.00.034.4. Updating to 20.00.034.10.");
                     Logger.addLoggingInfo("Device has 20.00.034.4. Updating to 20.00.034.10.");
                     updateFileType = V20_00_034_4;
-//                  updateModem();
+                  updateModem();
                 } else if (modemFirmwareVersion.contains("20.00.032-B041")) {
                     tvInfo.setText("Device has 20.00.032-B041. Updating to 20.00.034.4.");
                     Logger.addLoggingInfo("Device has 20.00.032-B041. Updating to 20.00.034.4.");
                     updateFileType = V20_00_032_B041;
-//                  updateModem();
+                  updateModem();
                 } else if (modemFirmwareVersion.contains("20.00.032")) {
                     tvInfo.setText("Device has 20.00.032. Updating to 20.00.034.4.");
                     Logger.addLoggingInfo("Device has 20.00.032. Updating to 20.00.034.4.");
                     updateFileType = V20_00_032;
-//                  updateModem();
+                  updateModem();
                 } else {
                     tvInfo.setText("Device's modem cannot be updated because there is no update file for this modem version.");
                     mainLayout.setBackgroundColor(Color.RED);
                     Logger.addLoggingInfo("Device's modem cannot be updated because there is no update file for this modem version.");
                     startRild();
 
-                    Logger.uploadLog(this);
+                    Logger.uploadLogs(this, false, "FAIL\nNo update file for this modem version.\n\n");
                 }
                 break;
             case "LE910-NA1":
@@ -203,7 +211,7 @@ public class MainActivity extends AppCompatActivity {
                     Logger.addLoggingInfo("Device has 20.00.522.7. Need to add update for this firmware.");
                     startRild();
 
-                    Logger.uploadLog(this);
+                    Logger.uploadLogs(this, false,"FAIL\nNo update file for this modem version.\n\n");
                 } else if (modemFirmwareVersion.equals("20.00.522.4")) {
                     tvInfo.setText("Device has 20.00.522.4. Need to add update for this firmware.");
                     updateFileType = V20_00_522_4;
@@ -211,14 +219,14 @@ public class MainActivity extends AppCompatActivity {
                     Logger.addLoggingInfo("Device has 20.00.522.4. Need to add update for this firmware.");
                     startRild();
 
-                    Logger.uploadLog(this);
+                    Logger.uploadLogs(this, false,"FAIL\nNo update file for this modem version.\n\n");
                 } else {
                     tvInfo.setText("Device's modem cannot be updated because there is no update file for this modem version.");
                     mainLayout.setBackgroundColor(Color.RED);
                     Logger.addLoggingInfo("Device's modem cannot be updated because there is no update file for this modem version.");
                     startRild();
 
-                    Logger.uploadLog(this);
+                    Logger.uploadLogs(this, false,"FAIL\nNo update file for this modem version.\n\n");
                 }
                 break;
             default:
@@ -227,7 +235,7 @@ public class MainActivity extends AppCompatActivity {
                 Logger.addLoggingInfo("Device's modem cannot be updated because there is no update file for this modem version.");
                 startRild();
 
-                Logger.uploadLog(this);
+                Logger.uploadLogs(this, false,"FAIL\nNo update file for this modem version.\n\n");
                 break;
         }
     }
@@ -463,8 +471,9 @@ public class MainActivity extends AppCompatActivity {
                 updateTvInfo("SUCCESS: Device modem updated successfully to 20.00.034.10.");
                 Logger.addLoggingInfo("SUCCESS: Device modem updated successfully to 20.00.034.10.");
             }else{
-                updateTvInfo("SUCCESS: Device modem updated successfully to 20.00.034.4. Rerun app to update to 20.00.034.10.");
-                Logger.addLoggingInfo("SUCCESS: Device modem updated successfully to 20.00.034.4. Rerun app to update to 20.00.034.10.");
+                updateTvInfo("SUCCESS: Device modem updated successfully to 20.00.034.4.\nRerun app to update to 20.00.034.10.");
+                Logger.addLoggingInfo("SUCCESS: Device modem updated successfully to 20.00.034.4.\nRerun app to update to 20.00.034.10.");
+
             }
 
             updateBackgroundColor(Color.GREEN);
@@ -502,7 +511,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateTvInfo(final String text){
-        runOnNewThread(new Runnable() {
+        runOnUiThread(new Runnable() {
             @Override
             public void run() {
                 tvInfo.setText(text);
@@ -520,7 +529,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateBackgroundColor(final int color){
-        runOnNewThread(new Runnable() {
+        runOnUiThread(new Runnable() {
             @Override
             public void run() {
                 mainLayout.setBackgroundColor(color);
