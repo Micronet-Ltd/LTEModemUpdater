@@ -3,9 +3,7 @@
     package="com.micronet.a317modemupdater"
     android:sharedUserId="android.uid.system">
 
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
-
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
@@ -19,7 +17,7 @@
         android:theme="@style/AppTheme">
         <activity android:name=".MainActivity"
             android:launchMode="singleInstance"
-            android:configChanges="keyboard|keyboardHidden">
+            android:configChanges="keyboard|keyboardHidden|mnc|mcc">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
