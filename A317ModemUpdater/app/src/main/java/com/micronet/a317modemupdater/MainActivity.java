@@ -92,6 +92,7 @@ public class MainActivity extends AppCompatActivity {
             tvModemType.setText("");
             mainLayout.setBackgroundColor(Color.YELLOW);
             Logger.uploadLogs(this, false, "FAIL\nCouldn't stop rild properly.\n\n");
+            delayedShutdown(120);
             return;
         }
 
@@ -101,6 +102,7 @@ public class MainActivity extends AppCompatActivity {
             tvInfo.setText("Could not setup the port properly for updating modem firmware. Reboot device and try again.");
             mainLayout.setBackgroundColor(Color.YELLOW);
             Logger.uploadLogs(this, false, "FAIL\nCouldn't set up port properly to communicate with modem.\n\n");
+            delayedShutdown(120);
             return;
         }
 
@@ -115,6 +117,7 @@ public class MainActivity extends AppCompatActivity {
             startRild();
 
             Logger.uploadLogs(this, false, "FAIL\nCouldn't communicate with modem.\n\n");
+            delayedShutdown(120);
         }
     }
 
