@@ -77,7 +77,7 @@ class Logger {
             public void run() {
                 if(summary != null){
                     // Add result header and imei to top of file
-                    stringBuffer.insert(0, summary + "IMEI: " + imei + "\n");
+                    stringBuffer.insert(0, summary + "IMEI: " + imei + "\n" + "Serial: " + serial);
 
                     // Save logging information just in case
                     db.logDao().insert(new LogEntity(stringBuffer.toString(), false, pass));

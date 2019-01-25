@@ -3,10 +3,13 @@ package com.micronet.a317modemupdater;
 import static com.micronet.a317modemupdater.Rild.stopRild;
 import static com.micronet.a317modemupdater.Rild.startRild;
 
+import android.content.Context;
 import android.content.res.Configuration;
 import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.CountDownTimer;
+import android.os.PowerManager;
 import android.support.constraint.ConstraintLayout;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
@@ -15,11 +18,14 @@ import android.widget.Button;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
+import android.widget.Toast;
 import java.io.InputStream;
+import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
 
     private final static String TAG = "Updater-Main";
+    private final Context context = this;
 
     private Port port;
 
@@ -35,6 +41,8 @@ public class MainActivity extends AppCompatActivity {
     private Button btnUpdateModem;
     private ProgressBar progressBar;
     private ConstraintLayout mainLayout;
+
+    private CountDownTimer countDownTimer;
 
     private Runnable updateRunnable = new Runnable() {
         @Override
@@ -151,6 +159,7 @@ public class MainActivity extends AppCompatActivity {
         progressBar.setProgress(0);
         progressBar.getProgressDrawable().setColorFilter(Color.GREEN, android.graphics.PorterDuff.Mode.MULTIPLY);
 
+        btnUpdateModem.setVisibility(View.INVISIBLE);
         btnUpdateModem.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -221,6 +230,7 @@ public class MainActivity extends AppCompatActivity {
                     startRild();
 
                     Logger.uploadLogs(this, false,"FAIL\nNo update file for this modem version.\n\n");
+//                    delayedShutdown(180);
                 } else if (modemFirmwareVersion.equals("20.00.522.4")) {
                     tvInfo.setText("Device has 20.00.522.4. Need to add update for this firmware.");
                     updateFileType = V20_00_522_4;
@@ -229,6 +239,7 @@ public class MainActivity extends AppCompatActivity {
                     startRild();
 
                     Logger.uploadLogs(this, false,"FAIL\nNo update file for this modem version.\n\n");
+//                    delayedShutdown(180);
                 } else {
                     tvInfo.setText("Device's modem cannot be updated because there is no update file for this modem version.");
                     mainLayout.setBackgroundColor(Color.RED);
@@ -500,6 +511,25 @@ public class MainActivity extends AppCompatActivity {
     // *********************************** Helper Methods ***********************************
     // **************************************************************************************
     // **************************************************************************************
+
+    private void delayedShutdown(final int delaySeconds){
+        countDownTimer = new CountDownTimer(delaySeconds * 1000, 15000){
+            public void onTick(long millisUntilFinished) {
+                Toast.makeText(context, String.format(Locale.getDefault(), "Rebooting the device in %d seconds.",
+                        (int) Math.ceil((float)millisUntilFinished/(float)1000)), Toast.LENGTH_LONG).show();
+            }
+
+            public void onFinish() {
+                // Reboot the device
+                PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+                pm.reboot(null);
+            }
+        }.start();
+    }
+
+    private void cancelShutdown(){
+        countDownTimer.cancel();
+    }
 
     private void sleep(int ms){
         try {
