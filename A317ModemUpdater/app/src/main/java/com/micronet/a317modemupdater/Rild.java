@@ -14,10 +14,11 @@ class Rild {
 
     /**
      * Tries to start rild, retries up to 10 times.
+     *
      * @return Whether or not rild was started.
      */
     static boolean startRild() {
-        for(int i = 0; i < 10; i++){
+        for (int i = 0; i < 10; i++) {
             try {
                 // Start rild
                 runShellCommand(new String[]{"/system/bin/setprop", "ctl.start", "ril-daemon"});
@@ -25,11 +26,11 @@ class Rild {
                 // Check to make sure that rild is running
                 String output = runShellCommand(new String[]{"/system/bin/getprop"});
 
-                if(output.toLowerCase().contains("[init.svc.ril-daemon]: [running]")){
+                if (output.toLowerCase().contains("[init.svc.ril-daemon]: [running]")) {
                     Log.i(TAG, "Rild started");
                     Logger.addLoggingInfo("Rild started");
                     return true;
-                }else{
+                } else {
                     Log.d(TAG, "Rild not started correctly, trying again.");
                     try {
                         Thread.sleep(100);
@@ -50,11 +51,12 @@ class Rild {
     }
 
     /**
-     *  Tries to kill rild, retries up to 10 times.
+     * Tries to kill rild, retries up to 10 times.
+     *
      * @return Whether or not rild was killed.
      */
     static boolean stopRild() {
-        for(int i = 0; i < 10; i++){
+        for (int i = 0; i < 10; i++) {
             try {
                 // Start rild
                 runShellCommand(new String[]{"/system/bin/setprop", "ctl.stop", "ril-daemon"});
@@ -62,11 +64,11 @@ class Rild {
                 // Check to make sure that rild is running
                 String output = runShellCommand(new String[]{"/system/bin/getprop"});
 
-                if(output.toLowerCase().contains("[init.svc.ril-daemon]: [stopped]")){
+                if (output.toLowerCase().contains("[init.svc.ril-daemon]: [stopped]")) {
                     Log.i(TAG, "Rild stopped");
                     Logger.addLoggingInfo("Rild stopped");
                     return true;
-                }else{
+                } else {
                     Log.d(TAG, "Rild not stopped correctly, trying again.");
                     try {
                         Thread.sleep(100);
@@ -86,7 +88,7 @@ class Rild {
         return false;
     }
 
-    private static String runShellCommand(String[] commands) throws IOException{
+    private static String runShellCommand(String[] commands) throws IOException {
         StringBuilder sb = new StringBuilder();
 
         BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(Runtime.getRuntime().exec(commands).getInputStream()));

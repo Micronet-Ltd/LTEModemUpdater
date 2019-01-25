@@ -7,6 +7,7 @@ import java.util.List;
 
 @Dao
 public interface LogDao {
+
     @Query("SELECT * FROM logs")
     List<LogEntity> getAll();
 

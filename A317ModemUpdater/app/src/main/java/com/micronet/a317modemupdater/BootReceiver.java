@@ -5,15 +5,19 @@ import android.content.Context;
 import android.content.Intent;
 import android.util.Log;
 
+/**
+ * Used to start this application on boot up.
+ */
 public class BootReceiver extends BroadcastReceiver {
+
     private static final String TAG = "Updater-BootReceiver";
 
     @Override
     public void onReceive(Context context, Intent intent) {
-        if(intent != null) {
+        if (intent != null) {
             String action = intent.getAction();
-            if(action != null) {
-                if(action.equals("android.intent.action.BOOT_COMPLETED")) {
+            if (action != null) {
+                if (action.equals("android.intent.action.BOOT_COMPLETED")) {
                     Log.d(TAG, "Received BOOT_COMPLETED broadcast.");
 
                     Intent mainIntent = new Intent(context, MainActivity.class);

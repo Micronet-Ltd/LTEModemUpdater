@@ -14,26 +14,31 @@ import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Locale;
 
+/**
+ * Used to connect to dropbox and upload logs.
+ */
 class DropBox {
+
     private final String TAG = "Updater-DropBox";
     private final String ACCESS_TOKEN = "LPPT11VZzEAAAAAAAAAAU47-w7F3dzDyGLmL0IagOX5HsECjVqkVRUa6Rum2vGam";
     private DbxClientV2 client;
 
-    DropBox(Context context){
+    DropBox(Context context) {
         // Create Dropbox client
         DbxRequestConfig config = DbxRequestConfig.newBuilder("A317ModemUpdater/" + BuildConfig.VERSION_NAME).build();
         client = new DbxClientV2(config, ACCESS_TOKEN);
     }
 
-    boolean uploadLogs(String dt, String id, String data, boolean pass){
+    boolean uploadLogs(String dt, String id, String data, boolean pass) {
         try {
             InputStream in = new ByteArrayInputStream(data.getBytes(Charset.forName("UTF-8")));
-            FileMetadata metadata = client.files().uploadBuilder("/a317ModemUpdater/" + id + "/" + (pass? "PASS ":"FAIL ") + dt + ".txt").withMode(WriteMode.ADD)
+            FileMetadata metadata = client.files().uploadBuilder("/a317ModemUpdater/" + id + "/" + (pass ? "PASS " : "FAIL ") + dt + ".txt")
+                    .withMode(WriteMode.ADD)
                     .withAutorename(true).uploadAndFinish(in);
-        }catch (NetworkIOException e){
-//            Log.d(TAG, "Error: no network connection - " + e.toString());
+        } catch (NetworkIOException e) {
+            Log.d(TAG, "Error: no network connection - " + e.toString());
             return false;
-        }catch (Exception e){
+        } catch (Exception e) {
             Log.e(TAG, e.toString());
             return false;
         }

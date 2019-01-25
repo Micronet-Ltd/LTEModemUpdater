@@ -51,13 +51,13 @@ public class MainActivity extends AppCompatActivity {
         }
     };
 
-    private void runOnNewThread(Runnable runnable){
+    private void runOnNewThread(Runnable runnable) {
         new Thread(runnable).start();
     }
 
     private final String PORT_PATH = "/dev/ttyACM0";
 
-    enum FirmwareVersions{
+    enum FirmwareVersions {
         V20_00_032, V20_00_032_B041, V20_00_034_4, V20_00_034_6, V20_00_034_10, V20_00_522_4, V20_00_522_7
     }
 
@@ -85,7 +85,7 @@ public class MainActivity extends AppCompatActivity {
         port = new Port(PORT_PATH);
 
         // Kill rild to be able to communicate with the modem
-        if(!stopRild()){
+        if (!stopRild()) {
             Log.e(TAG, "Error killing rild. Could not properly update modem firmware.");
             Logger.addLoggingInfo("Error killing rild. Could not properly update modem firmware.");
             tvInfo.setText("Error killing rild. Could not properly update modem firmware. Reboot device and try again.");
@@ -96,7 +96,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
         // Setup port
-        if(!port.setupPort()){
+        if (!port.setupPort()) {
             Logger.addLoggingInfo("Could not setup the port properly for updating modem firmware.");
             tvInfo.setText("Could not setup the port properly for updating modem firmware. Reboot device and try again.");
             mainLayout.setBackgroundColor(Color.YELLOW);
@@ -105,10 +105,10 @@ public class MainActivity extends AppCompatActivity {
         }
 
         // Test the connection
-        if(port.testConnection()){
+        if (port.testConnection()) {
             Logger.addLoggingInfo("Able to communicate with modem.");
             checkIfModemUpdatesAreAvailable();
-        }else{
+        } else {
             Logger.addLoggingInfo("Error communicating with the modem. Cannot update modem.");
             tvInfo.setText("Error communicating with the modem. Cannot update modem.\nRestart and try again. Restarting rild.");
             mainLayout.setBackgroundColor(Color.YELLOW);
@@ -122,7 +122,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
 
-        if(Logger.db != null && Logger.db.isOpen()){
+        if (Logger.db != null && Logger.db.isOpen()) {
             Logger.db.close();
         }
     }
@@ -183,7 +183,7 @@ public class MainActivity extends AppCompatActivity {
         Logger.addLoggingInfo(modemTypeDisplay);
         Logger.addLoggingInfo(modemVersionDisplay);
 
-        switch(modemType){
+        switch (modemType) {
             case "LE910-SVL":
                 if (modemFirmwareVersion.equals("20.00.034.10")) {
                     tvInfo.setText("Device has 20.00.034.10. Device already updated.");
@@ -229,7 +229,7 @@ public class MainActivity extends AppCompatActivity {
                     Logger.addLoggingInfo("Device has 20.00.522.7. Need to add update for this firmware.");
                     startRild();
 
-                    Logger.uploadLogs(this, false,"FAIL\nNo update file for this modem version.\n\n");
+                    Logger.uploadLogs(this, false, "FAIL\nNo update file for this modem version.\n\n");
 //                    delayedShutdown(180);
                 } else if (modemFirmwareVersion.equals("20.00.522.4")) {
                     tvInfo.setText("Device has 20.00.522.4. Need to add update for this firmware.");
@@ -238,7 +238,7 @@ public class MainActivity extends AppCompatActivity {
                     Logger.addLoggingInfo("Device has 20.00.522.4. Need to add update for this firmware.");
                     startRild();
 
-                    Logger.uploadLogs(this, false,"FAIL\nNo update file for this modem version.\n\n");
+                    Logger.uploadLogs(this, false, "FAIL\nNo update file for this modem version.\n\n");
 //                    delayedShutdown(180);
                 } else {
                     tvInfo.setText("Device's modem cannot be updated because there is no update file for this modem version.");
@@ -246,7 +246,7 @@ public class MainActivity extends AppCompatActivity {
                     Logger.addLoggingInfo("Device's modem cannot be updated because there is no update file for this modem version.");
                     startRild();
 
-                    Logger.uploadLogs(this, false,"FAIL\nNo update file for this modem version.\n\n");
+                    Logger.uploadLogs(this, false, "FAIL\nNo update file for this modem version.\n\n");
                 }
                 break;
             default:
@@ -255,7 +255,7 @@ public class MainActivity extends AppCompatActivity {
                 Logger.addLoggingInfo("Device's modem cannot be updated because there is no update file for this modem version.");
                 startRild();
 
-                Logger.uploadLogs(this, false,"FAIL\nNo update file for this modem version.\n\n");
+                Logger.uploadLogs(this, false, "FAIL\nNo update file for this modem version.\n\n");
                 break;
         }
     }
@@ -280,7 +280,7 @@ public class MainActivity extends AppCompatActivity {
         InputStream updateInputStream;
 
         // Select correct delta update
-        switch(updateFileType){
+        switch (updateFileType) {
             case V20_00_032:
                 updateInputStream = getResources().openRawResource(R.raw.update_032_to_034_4);
                 break;
@@ -343,8 +343,10 @@ public class MainActivity extends AppCompatActivity {
                     port.write(updateFileBytes, counter, NUM_BYTES_TO_SEND);
 
                     packetsSent++;
-                    Log.d(TAG, "Packet " + packetsSent + " sent. Total Bytes sent: " + (counter + NUM_BYTES_TO_SEND) + " Sent Bytes: " + NUM_BYTES_TO_SEND);
-                    Logger.addLoggingInfo("Packet " + packetsSent + " sent. Total Bytes sent: " + (counter + NUM_BYTES_TO_SEND) + " Sent Bytes: " + NUM_BYTES_TO_SEND);
+                    Log.d(TAG, "Packet " + packetsSent + " sent. Total Bytes sent: " + (counter + NUM_BYTES_TO_SEND) + " Sent Bytes: "
+                            + NUM_BYTES_TO_SEND);
+                    Logger.addLoggingInfo("Packet " + packetsSent + " sent. Total Bytes sent: " + (counter + NUM_BYTES_TO_SEND) + " Sent Bytes: "
+                            + NUM_BYTES_TO_SEND);
                     counter += NUM_BYTES_TO_SEND;
                     setSendProgress(packetsSent);
                 } catch (Exception e) {
@@ -357,8 +359,12 @@ public class MainActivity extends AppCompatActivity {
                     port.write(updateFileBytes, counter, (totalUpdateFileSize - counter));
 
                     packetsSent++;
-                    Log.d(TAG, "Packet " + packetsSent + " sent. Total Bytes sent: " + (counter + (totalUpdateFileSize - counter)) + " Sent Bytes: " + (totalUpdateFileSize - counter));
-                    Logger.addLoggingInfo("Packet " + packetsSent + " sent. Total Bytes sent: " + (counter + (totalUpdateFileSize - counter)) + " Sent Bytes: " + (totalUpdateFileSize - counter));
+                    Log.d(TAG,
+                            "Packet " + packetsSent + " sent. Total Bytes sent: " + (counter + (totalUpdateFileSize - counter)) + " Sent Bytes: " + (
+                                    totalUpdateFileSize - counter));
+                    Logger.addLoggingInfo(
+                            "Packet " + packetsSent + " sent. Total Bytes sent: " + (counter + (totalUpdateFileSize - counter)) + " Sent Bytes: " + (
+                                    totalUpdateFileSize - counter));
                     counter += totalUpdateFileSize - counter;
                     setSendProgress(packetsSent);
                 } catch (Exception e) {
@@ -436,7 +442,7 @@ public class MainActivity extends AppCompatActivity {
                 continue;
             }
 
-            if(!port.openPort()){
+            if (!port.openPort()) {
                 Log.e(TAG, "Loop: " + i + ", Error opening port. Sleeping then checking next iteration.");
                 Logger.addLoggingInfo("Loop: " + i + ", Error opening port. Sleeping then checking next iteration.");
                 sleep(3000);
@@ -449,7 +455,8 @@ public class MainActivity extends AppCompatActivity {
             // updateFileType 1 and 2 should go to 20.00.034.4
             // updateFileType 3 and 4 should go to 20.00.034.10
             if (updateFileType == 1 || updateFileType == 2) {
-                if (updatedSoftwareVersion.contains("20.00.034") && updatedExtendedSoftwareVersion.contains("#CFVR: 4")) { // Modem updated successfully
+                if (updatedSoftwareVersion.contains("20.00.034") && updatedExtendedSoftwareVersion
+                        .contains("#CFVR: 4")) { // Modem updated successfully
                     pass = true;
                     updateTvModemVersion(formatModemVersion(updatedSoftwareVersion, updatedExtendedSoftwareVersion));
 
@@ -457,7 +464,8 @@ public class MainActivity extends AppCompatActivity {
                     Log.d(TAG, "Loop: " + i + ", Str is: " + updatedSoftwareVersion);
                     Log.d(TAG, "Version updated successfully.");
                     break;
-                } else if (updatedSoftwareVersion.contains("20.00.032") || updatedSoftwareVersion.contains("20.00.032-B041")){ // Modem not updated successfully
+                } else if (updatedSoftwareVersion.contains("20.00.032") || updatedSoftwareVersion
+                        .contains("20.00.032-B041")) { // Modem not updated successfully
                     updateTvModemVersion(formatModemVersion(updatedSoftwareVersion, updatedExtendedSoftwareVersion));
 
                     port.closePort();
@@ -466,8 +474,9 @@ public class MainActivity extends AppCompatActivity {
                     Log.d(TAG, "Version not updated successfully");
                     break;
                 }
-            } else if (updateFileType == 3 || updateFileType == 4){
-                if (updatedSoftwareVersion.contains("20.00.034") && updatedExtendedSoftwareVersion.contains("#CFVR: 10")) { // Modem updated successfully
+            } else if (updateFileType == 3 || updateFileType == 4) {
+                if (updatedSoftwareVersion.contains("20.00.034") && updatedExtendedSoftwareVersion
+                        .contains("#CFVR: 10")) { // Modem updated successfully
                     pass = true;
                     updateTvModemVersion(formatModemVersion(updatedSoftwareVersion, updatedExtendedSoftwareVersion));
 
@@ -487,10 +496,10 @@ public class MainActivity extends AppCompatActivity {
 
         // Handle whether the update succeeded or failed
         if (pass) {
-            if(updateFileType == 3 || updateFileType == 4){
+            if (updateFileType == 3 || updateFileType == 4) {
                 updateTvInfo("SUCCESS: Device modem updated successfully to 20.00.034.10.");
                 Logger.addLoggingInfo("SUCCESS: Device modem updated successfully to 20.00.034.10.");
-            }else{
+            } else {
                 updateTvInfo("SUCCESS: Device modem updated successfully to 20.00.034.4.\nRerun app to update to 20.00.034.10.");
                 Logger.addLoggingInfo("SUCCESS: Device modem updated successfully to 20.00.034.4.\nRerun app to update to 20.00.034.10.");
 
@@ -512,11 +521,11 @@ public class MainActivity extends AppCompatActivity {
     // **************************************************************************************
     // **************************************************************************************
 
-    private void delayedShutdown(final int delaySeconds){
-        countDownTimer = new CountDownTimer(delaySeconds * 1000, 15000){
+    private void delayedShutdown(final int delaySeconds) {
+        countDownTimer = new CountDownTimer(delaySeconds * 1000, 15000) {
             public void onTick(long millisUntilFinished) {
                 Toast.makeText(context, String.format(Locale.getDefault(), "Rebooting the device in %d seconds.",
-                        (int) Math.ceil((float)millisUntilFinished/(float)1000)), Toast.LENGTH_LONG).show();
+                        (int) Math.ceil((float) millisUntilFinished / (float) 1000)), Toast.LENGTH_LONG).show();
             }
 
             public void onFinish() {
@@ -527,11 +536,11 @@ public class MainActivity extends AppCompatActivity {
         }.start();
     }
 
-    private void cancelShutdown(){
+    private void cancelShutdown() {
         countDownTimer.cancel();
     }
 
-    private void sleep(int ms){
+    private void sleep(int ms) {
         try {
             Thread.sleep(ms);
         } catch (InterruptedException e) {
@@ -539,17 +548,17 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private String formatModemVersion(String modemVersion, String extendedVersion){
+    private String formatModemVersion(String modemVersion, String extendedVersion) {
         return modemVersion.replace("\n", "")
-                        .replace("AT+CGMR","")
-                        .replace("OK", "") + "." +
+                .replace("AT+CGMR", "")
+                .replace("OK", "") + "." +
                 extendedVersion.replace("\n", "")
-                        .replace("AT#CFVR","")
+                        .replace("AT#CFVR", "")
                         .replace("OK", "")
                         .replace("#CFVR: ", "");
     }
 
-    private void updateTvInfo(final String text){
+    private void updateTvInfo(final String text) {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -558,7 +567,7 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    private void updateTvModemVersion(final String text){
+    private void updateTvModemVersion(final String text) {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -567,7 +576,7 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    private void updateBackgroundColor(final int color){
+    private void updateBackgroundColor(final int color) {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -576,7 +585,7 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    private void setSendProgress(final int progress){
+    private void setSendProgress(final int progress) {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {

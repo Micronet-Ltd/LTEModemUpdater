@@ -36,17 +36,18 @@ class Port {
     }
 
     private native static FileDescriptor open(String path, int Baudrate);
+
     private native void close();
 
-    Port(String path){
+    Port(String path) {
         port = new File(path);
     }
 
-    boolean exists(){
+    boolean exists() {
         return port.exists();
     }
 
-    boolean openPort(){
+    boolean openPort() {
         try {
             // Create streams to and from the port
             inputStream = new BufferedInputStream(new FileInputStream(port));
@@ -62,7 +63,7 @@ class Port {
         return true;
     }
 
-    void closePort(){
+    void closePort() {
         try {
             // Create streams to and from the port
             inputStream.close();
@@ -74,7 +75,7 @@ class Port {
         Logger.addLoggingInfo("Port closed successfully");
     }
 
-    boolean setupPort(){
+    boolean setupPort() {
         if (!port.exists()) {
             Log.e(TAG, "Port does not exist. Could not properly update modem firmware. Restarting rild.");
             Logger.addLoggingInfo("Port does not exist. Could not properly update modem firmware. Restarting rild.");
@@ -108,15 +109,16 @@ class Port {
 
     /**
      * Test the connection with the modem.
+     *
      * @return whether a connection was made with the modem
      */
-    boolean testConnection(){
+    boolean testConnection() {
         // Try up to 10 times to test connection
-        for(int i = 0; i < 10; i++){
+        for (int i = 0; i < 10; i++) {
             String output = writeRead("AT\r");
 
             // Output must contain "OK"
-            if(output.contains("OK")){
+            if (output.contains("OK")) {
                 Log.d(TAG, "Able to communicate with modem.");
                 return true;
             }
@@ -126,13 +128,13 @@ class Port {
         return false;
     }
 
-    String getModemType(){
+    String getModemType() {
         // Try 10 times to get the correct modem type
-        for(int i = 0; i < 10; i++){
+        for (int i = 0; i < 10; i++) {
             String modemType = writeRead("AT+CGMM\r").replace("\n", "").replace("OK", "");
 
             // Modem type must match something like LE910-NA1
-            if(modemType.matches("\\w+-\\w+")){
+            if (modemType.matches("\\w+-\\w+")) {
                 Log.d(TAG, "Modem type is " + modemType);
                 return modemType;
             }
@@ -142,16 +144,16 @@ class Port {
         return "UNKNOWN";
     }
 
-    String getModemVersion(){
+    String getModemVersion() {
         // Try 10 times to get the correct modem version
-        for(int i = 0; i < 10; i++){
+        for (int i = 0; i < 10; i++) {
             String modemFirmwareVersion = writeRead("AT+CGMR\r");
             String extendedSoftwareVersionNumber = writeRead("AT#CFVR\r");
 
             String modemVersion = formatModemVersion(modemFirmwareVersion, extendedSoftwareVersionNumber).trim();
 
             // modemVersion must match something like 20.00.522.7
-            if(modemVersion.matches("\\d+\\.\\d+\\.\\d+.\\d+")){
+            if (modemVersion.matches("\\d+\\.\\d+\\.\\d+.\\d+")) {
                 Log.d(TAG, "Modem version is " + modemVersion);
                 return modemVersion;
             }
@@ -161,12 +163,12 @@ class Port {
         return "UNKNOWN";
     }
 
-    private String formatModemVersion(String modemVersion, String extendedVersion){
+    private String formatModemVersion(String modemVersion, String extendedVersion) {
         return modemVersion.replace("\n", "")
-                .replace("AT+CGMR","")
+                .replace("AT+CGMR", "")
                 .replace("OK", "") + "." +
                 extendedVersion.replace("\n", "")
-                        .replace("AT#CFVR","")
+                        .replace("AT#CFVR", "")
                         .replace("OK", "")
                         .replace("#CFVR: ", "");
     }
@@ -176,12 +178,12 @@ class Port {
         outputStream.flush();
     }
 
-    String writeRead(String output){
+    String writeRead(String output) {
         writeToPort(output);
         return readFromPort(8000);
     }
 
-    String writeExtendedRead(String output, String extended){
+    String writeExtendedRead(String output, String extended) {
         writeToPort(output);
         return readFromPortExtended(extended);
     }
@@ -204,9 +206,9 @@ class Port {
     void skipAvailable(int timeout) {
         long start = System.currentTimeMillis();
         try {
-            while(System.currentTimeMillis() - start < timeout){
+            while (System.currentTimeMillis() - start < timeout) {
                 int available = inputStream.available();
-                if(available > 0){
+                if (available > 0) {
                     long skipped = inputStream.skip(available);
                     Log.i(TAG, String.format("Skipped %d bytes", skipped));
                 }

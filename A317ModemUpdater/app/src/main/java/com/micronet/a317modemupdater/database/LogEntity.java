@@ -8,6 +8,7 @@ import java.util.Locale;
 
 @Entity(tableName = "logs")
 public class LogEntity {
+
     @PrimaryKey(autoGenerate = true)
     public int id;
 
@@ -16,7 +17,7 @@ public class LogEntity {
     public boolean pass;
     public boolean uploaded;
 
-    public LogEntity(String summary, boolean uploaded, boolean pass){
+    public LogEntity(String summary, boolean uploaded, boolean pass) {
         this.id = 0;
         this.dt = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Calendar.getInstance().getTime());
         this.summary = summary;
