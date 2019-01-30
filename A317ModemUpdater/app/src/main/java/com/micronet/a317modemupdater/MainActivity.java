@@ -42,7 +42,7 @@ public class MainActivity extends AppCompatActivity {
     private ConstraintLayout mainLayout;
 
     private CountDownTimer countDownTimer;
-    private final int REBOOT_DELAY = 180;
+    private final int REBOOT_DELAY = 300;
 
     private final String PORT_PATH = "/dev/ttyACM0";
 
@@ -55,6 +55,9 @@ public class MainActivity extends AppCompatActivity {
 
     private final int V20_00_522_4 = 11;
     private final int V20_00_522_7 = 12;
+
+    private final int V20_00_034_FIX = 20;
+    private final int V20_00_522_FIX = 21;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -128,6 +131,7 @@ public class MainActivity extends AppCompatActivity {
             mainLayout.setBackgroundColor(Color.YELLOW);
             Log.e(TAG, "Error killing rild. Could not properly update modem firmware.");
             Logger.addLoggingInfo("Error killing rild. Could not properly update modem firmware.");
+            startRild();
 
             // Upload logs and begin reboot process
             Logger.uploadLogs(this, false, "FAIL\nCouldn't stop rild properly.\n\n");
@@ -188,8 +192,19 @@ public class MainActivity extends AppCompatActivity {
         switch (modemType) {
             case "LE910-SVL":
                 switch(modemFirmwareVersion){
+                    case "20.00.034.FIX":
+                        String info = "Device has 20.00.034.FIX. Already updated.";
+                        tvInfo.setText(info);
+                        mainLayout.setBackgroundColor(Color.GREEN);
+                        Logger.addLoggingInfo(info);
+                        startRild();
+
+                        // Upload results.
+                        updateFileType = V20_00_034_FIX;
+                        Logger.uploadLogs(context, true, "PASS\nModem already updated to 20.00.034.FIX.\n\n");
+                        break;
                     case "20.00.034.10":
-                        String info = "Device has 20.00.034.10. Trying to update.";
+                        info = "Device has 20.00.034.10. Trying to update.";
                         tvInfo.setText(info);
                         Logger.addLoggingInfo(info);
 
@@ -229,8 +244,19 @@ public class MainActivity extends AppCompatActivity {
                 break;
             case "LE910-NA1":
                 switch(modemFirmwareVersion){
+                    case "20.00.522.FIX":
+                        String info = "Device has 20.00.522.FIX. Already updated.";
+                        tvInfo.setText(info);
+                        mainLayout.setBackgroundColor(Color.GREEN);
+                        Logger.addLoggingInfo(info);
+                        startRild();
+
+                        // Upload results
+                        updateFileType = V20_00_522_FIX;
+                        Logger.uploadLogs(context, true, "PASS\nModem already updated to 20.00.522.FIX.\n\n");
+                        break;
                     case "20.00.522.7":
-                        String info = "Device has 20.00.522.7. Trying to update.";
+                        info = "Device has 20.00.522.7. Trying to update.";
                         tvInfo.setText(info);
                         mainLayout.setBackgroundColor(Color.YELLOW);
                         Logger.addLoggingInfo(info);
@@ -248,6 +274,7 @@ public class MainActivity extends AppCompatActivity {
                         // Update modem
                         updateFileType = V20_00_522_4;
                         updateModem();
+                        break;
                     default:
                         info = "Device's modem cannot be updated because there is no update file for this modem version. Rebooting.";
                         tvInfo.setText(info);
@@ -294,6 +321,7 @@ public class MainActivity extends AppCompatActivity {
             tvInfo.setText(info);
             mainLayout.setBackgroundColor(Color.YELLOW);
             Logger.addLoggingInfo(info);
+            startRild();
 
             Logger.uploadLogs(this, false, "FAIL\nError loading update file or no update file found.\n\n");
             delayedShutdown(REBOOT_DELAY);
@@ -533,8 +561,8 @@ public class MainActivity extends AppCompatActivity {
             updateBackgroundColor(Color.GREEN);
             return true;
         } else {
-            updateTvInfo("ERROR: Device modem not upgraded successfully. Reboot device and try again.");
-            Logger.addLoggingInfo("ERROR: Device modem not upgraded successfully. Reboot device and try again.");
+            updateTvInfo("ERROR: Modem not upgraded successfully. Reboot device and try again.");
+            Logger.addLoggingInfo("ERROR: Modem not upgraded successfully. Reboot device and try again.");
             updateBackgroundColor(Color.RED);
             return false;
         }

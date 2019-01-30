@@ -137,7 +137,7 @@ class Port {
             // Modem type must match something like LE910-NA1
             if (modemType.matches("\\w+-\\w+")) {
                 Log.d(TAG, "Modem type is " + modemType);
-                return modemType;
+                return modemType.trim();
             }
         }
 
@@ -156,7 +156,7 @@ class Port {
             // modemVersion must match something like 20.00.522.7
             if (modemVersion.matches("\\d+\\.\\d+\\.\\d+.\\d+")) {
                 Log.d(TAG, "Modem version is " + modemVersion);
-                return modemVersion;
+                return modemVersion.trim();
             }
         }
 
