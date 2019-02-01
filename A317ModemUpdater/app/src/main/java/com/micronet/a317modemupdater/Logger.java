@@ -8,6 +8,7 @@ import android.os.Build;
 import android.support.annotation.Nullable;
 import android.telephony.TelephonyManager;
 import android.util.Log;
+import android.widget.Toast;
 import com.micronet.a317modemupdater.database.LogDatabase;
 import com.micronet.a317modemupdater.database.LogEntity;
 import java.text.SimpleDateFormat;
@@ -112,6 +113,8 @@ class Logger {
                     if (dropBox.uploadLogs(log.dt, serial, log.summary, pass)) {
                         Log.i(TAG, "Successfully uploaded logging information for log with id " + log.id + ".");
                         db.logDao().updateLogStatus(log.id);
+                        Toast.makeText(context, "Successfully uploaded logging information for log with id " + log.id + ".", Toast.LENGTH_SHORT)
+                                .show();
                         return;
                     }
                 }
