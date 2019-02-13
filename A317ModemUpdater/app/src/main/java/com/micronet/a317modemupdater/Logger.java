@@ -2,13 +2,14 @@ package com.micronet.a317modemupdater;
 
 import android.arch.persistence.room.Room;
 import android.content.Context;
+import android.content.Intent;
+import android.content.SharedPreferences;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.Build;
 import android.support.annotation.Nullable;
 import android.telephony.TelephonyManager;
 import android.util.Log;
-import android.widget.Toast;
 import com.micronet.a317modemupdater.database.LogDatabase;
 import com.micronet.a317modemupdater.database.LogEntity;
 import java.text.SimpleDateFormat;
@@ -26,9 +27,11 @@ class Logger {
     private static final String TAG = "Updater-Logger";
     private static StringBuffer stringBuffer;
     private static String imei;
-    private static String serial;
+    static String serial;
     static LogDatabase db;
     private static ExecutorService executorService;
+
+    private static final String UPDATE_SUCCESSFUL = "com.micronet.dsc.resetrb.modemupdater.UPDATE_SUCCESSFUL";
 
     /**
      * Initializes a new Logger instance.
@@ -86,6 +89,10 @@ class Logger {
 
                 // Get a list of all logs not uploaded
                 ArrayList<LogEntity> logs = (ArrayList<LogEntity>) db.logDao().getAllWhereNotUploaded();
+                if(!logs.isEmpty()){
+                    context.getSharedPreferences("LTEModemUpdater", Context.MODE_PRIVATE).edit()
+                            .putBoolean("uploaded", false).apply();
+                }
 
                 Log.i(TAG, String.format("There are %d logs to upload.", logs.size()));
 
@@ -94,27 +101,41 @@ class Logger {
                     int timeoutPeriod = 10000;
                     Log.i(TAG, "Trying to upload log with id " + log.id + " from " + log.dt + ".");
 
-                    uploadHelper(log, timeoutPeriod, context, pass);
+                    uploadHelper(log, timeoutPeriod, context);
                 }
 
+                if(allLogsUploaded()){
+                    context.getSharedPreferences("LTEModemUpdater", Context.MODE_PRIVATE).edit()
+                            .putBoolean("uploaded", true).apply();
+
+                    // If all logs are uploaded and the device is updated then send broadcast to clean up to resetrb.
+                    if(isUpdated(context)){
+                        Intent successfulUpdateIntent = new Intent(UPDATE_SUCCESSFUL);
+                        context.sendBroadcast(successfulUpdateIntent);
+                        Log.i(TAG, "All logs uploaded and firmware is updated. Sending broadcast to cleanup.");
+                    }else{
+                        Log.i(TAG, "All logs uploaded but firmware is not updated.");
+                    }
+                }else{
+                    context.getSharedPreferences("LTEModemUpdater", Context.MODE_PRIVATE).edit()
+                            .putBoolean("uploaded", false).apply();
+                }
             }
         };
 
         return runnable;
     }
 
-    private static void uploadHelper(LogEntity log, int timeoutPeriod, Context context, boolean pass) {
+    private static void uploadHelper(LogEntity log, int timeoutPeriod, Context context) {
         for (int i = 0; i < 5; i++) {
             for (int j = 0; j < 5; j++) {
                 // Check if there is internet connection
                 if (hasInternetConnection(context)) {
                     // Try to upload logs to dropbox
                     DropBox dropBox = new DropBox(context);
-                    if (dropBox.uploadLogs(log.dt, serial, log.summary, pass)) {
+                    if (dropBox.uploadLogs(log.dt, serial, log.summary, log.pass)) {
                         Log.i(TAG, "Successfully uploaded logging information for log with id " + log.id + ".");
                         db.logDao().updateLogStatus(log.id);
-                        Toast.makeText(context, "Successfully uploaded logging information for log with id " + log.id + ".", Toast.LENGTH_SHORT)
-                                .show();
                         return;
                     }
                 }
@@ -148,5 +169,15 @@ class Logger {
             }
         }
         return false;
+    }
+
+    private static synchronized boolean allLogsUploaded(){
+        ArrayList<LogEntity> logs = (ArrayList<LogEntity>) db.logDao().getAllWhereNotUploaded();
+        return logs.isEmpty();
+    }
+
+    private static synchronized boolean isUpdated(Context context){
+        SharedPreferences sharedPreferences = context.getSharedPreferences("LTEModemUpdater", Context.MODE_PRIVATE);
+        return sharedPreferences.getBoolean("updated", false);
     }
 }
