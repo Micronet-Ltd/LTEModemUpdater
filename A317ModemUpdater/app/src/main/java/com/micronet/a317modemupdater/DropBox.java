@@ -48,8 +48,8 @@ class DropBox {
 
     boolean preUploadLog(String dt, String id) {
         try {
-            InputStream in = new ByteArrayInputStream(("About to check modem firmware version.\nIf update is available then modem firmware."
-                    + "will try to be updated").getBytes(Charset.forName("UTF-8")));
+            InputStream in = new ByteArrayInputStream(("About to check modem firmware version.\nIf update is available then modem firmware"
+                    + " will try to be updated.").getBytes(Charset.forName("UTF-8")));
             FileMetadata metadata = client.files().uploadBuilder("/a317ModemUpdater/" + id + "/preupload " + dt + ".txt")
                     .withMode(WriteMode.ADD)
                     .withAutorename(true).uploadAndFinish(in);

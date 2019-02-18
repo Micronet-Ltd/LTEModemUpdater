@@ -100,27 +100,15 @@ public class MainActivity extends AppCompatActivity {
 
             // Setup UI, create new logger, and create new port to communicate with the modem.
             setUpUi();
-            Logger.createNew(this);
-            port = new Port(PORT_PATH);
+            tvInfo.setText("Preparing to check modem version...");
 
-            // Try to upload log stating that you will be trying to check and update modem.
+            // TODO: Decouple from the UI. start on new thread
             runOnNewThread(new Runnable() {
                 @Override
                 public void run() {
-                    DropBox dropBox = new DropBox(context);
-                    for(int i = 0; i < 10; i++){
-                        if(dropBox.preUploadLog(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Calendar.getInstance().getTime()),
-                                Logger.serial)){
-                            Log.i(TAG, "Uploaded precheck log to dropbox.");
-                            break;
-                        }
-                    }
+                    initiateApplication();
                 }
             });
-
-            // Try to kill rild, setup the port, and communicate with the modem.
-            // If successful will start trying to update, else will log errors and reboot device.
-            setupPortAndModemCommunication();
         }
     }
 
@@ -169,6 +157,28 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+    private void initiateApplication(){
+        Logger.createNew(context);
+        port = new Port(PORT_PATH);
+
+        // TODO: Implement a backoff method to try to make sure logs are actually uploaded if possible.
+        // Try to upload log stating that you will be trying to check and update modem.
+        DropBox dropBox = new DropBox(context);
+        for(int i = 0; i < 10; i++){
+            if(dropBox.preUploadLog(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Calendar.getInstance().getTime()),
+                    Logger.serial)){
+                Log.i(TAG, "Uploaded precheck log to dropbox.");
+                break;
+            }else{
+                sleep(100);
+            }
+        }
+
+        // Try to kill rild, setup the port, and communicate with the modem.
+        // If successful will start trying to update, else will log errors and reboot device.
+        setupPortAndModemCommunication();
+    }
+
     /**
      * Handles stopping rild, setting up the port, and trying to communicate with the modem. If it can then it will try to update the modem
      * if an update is available, else it will log the errors and reboot the device.
@@ -177,29 +187,29 @@ public class MainActivity extends AppCompatActivity {
         // Try to stop rild to communicate with the modem, if it fails then reboot.
         if (!stopRild()) {
             // Log errors and update UI
-            tvInfo.setText("Error killing rild. Could not properly update modem firmware. Reboot device and try again.");
-            mainLayout.setBackgroundColor(Color.YELLOW);
+            updateTvInfo("Error killing rild. Could not properly update modem firmware. Reboot device and try again.");
+            updateBackgroundColor(Color.YELLOW);
             Log.e(TAG, "Error killing rild. Could not properly update modem firmware.");
             Logger.addLoggingInfo("Error killing rild. Could not properly update modem firmware.");
             startRild();
 
             // Upload logs and begin reboot process
             Logger.uploadLogs(this, false, "FAIL\nCouldn't stop rild properly.\n\n");
-            delayedShutdown(REBOOT_DELAY);
+//            delayedShutdown(REBOOT_DELAY);
             return;
         }
 
         // Try to set up the port to communicate with the modem, if it fails then reboot.
         if (!port.setupPort()) {
             // Log errors and update UI
-            tvInfo.setText("Could not setup the port properly for updating modem firmware. Reboot device and try again.");
-            mainLayout.setBackgroundColor(Color.YELLOW);
+            updateTvInfo("Could not setup the port properly for updating modem firmware. Reboot device and try again.");
+            updateBackgroundColor(Color.YELLOW);
             Logger.addLoggingInfo("Could not setup the port properly for updating modem firmware.");
             startRild();
 
             // Upload logs and begin reboot process
             Logger.uploadLogs(this, false, "FAIL\nCouldn't setup port properly to communicate with modem.\n\n");
-            delayedShutdown(REBOOT_DELAY);
+//            delayedShutdown(REBOOT_DELAY);
             return;
         }
 
@@ -210,14 +220,14 @@ public class MainActivity extends AppCompatActivity {
             checkFirmwareVersion();
         } else {
             // Log errors and update UI
-            tvInfo.setText("Error communicating with the modem. Cannot update modem.\nRestart and try again. Restarting rild.");
-            mainLayout.setBackgroundColor(Color.YELLOW);
+            updateTvInfo("Error communicating with the modem. Cannot update modem.\nRestart and try again. Restarting rild.");
+            updateBackgroundColor(Color.YELLOW);
             Logger.addLoggingInfo("Error communicating with the modem. Cannot update modem.");
             startRild();
 
             // Upload logs and begin reboot process
             Logger.uploadLogs(this, false, "FAIL\nCouldn't communicate with modem.\n\n");
-            delayedShutdown(REBOOT_DELAY);
+//            delayedShutdown(REBOOT_DELAY);
         }
     }
 
@@ -229,8 +239,8 @@ public class MainActivity extends AppCompatActivity {
         String modemVersionDisplay = "Modem Version: " + modemFirmwareVersion;
 
         // Update modem type/version and add logging info
-        tvModemType.setText(modemTypeDisplay);
-        tvModemVersion.setText(modemVersionDisplay);
+        updateTvModemType(modemTypeDisplay);
+        updateTvModemVersion(modemVersionDisplay);
         Logger.addLoggingInfo(modemTypeDisplay);
         Logger.addLoggingInfo(modemVersionDisplay);
 
@@ -244,8 +254,8 @@ public class MainActivity extends AppCompatActivity {
                 switch(modemFirmwareVersion){
                     case "20.00.034.11":
                         String info = "Device has 20.00.034.11. Already updated.";
-                        tvInfo.setText(info);
-                        mainLayout.setBackgroundColor(Color.GREEN);
+                        updateTvInfo(info);
+                        updateBackgroundColor(Color.GREEN);
                         Logger.addLoggingInfo(info);
                         startRild();
 
@@ -259,7 +269,7 @@ public class MainActivity extends AppCompatActivity {
                         break;
                     case "20.00.034.10":
                         info = "Device has 20.00.034.10. Trying to update.";
-                        tvInfo.setText(info);
+                        updateTvInfo(info);
                         Logger.addLoggingInfo(info);
 
                         // Update modem
@@ -268,7 +278,7 @@ public class MainActivity extends AppCompatActivity {
                         break;
                     case "20.00.034.6":
                         info = "Device has 20.00.034.6. Trying to update.";
-                        tvInfo.setText(info);
+                        updateTvInfo(info);
                         Logger.addLoggingInfo(info);
 
                         // Update modem
@@ -277,7 +287,7 @@ public class MainActivity extends AppCompatActivity {
                         break;
                     case "20.00.034.4":
                         info = "Device has 20.00.034.4. Trying to update.";
-                        tvInfo.setText(info);
+                        updateTvInfo(info);
                         Logger.addLoggingInfo(info);
 
                         // Update modem
@@ -286,13 +296,13 @@ public class MainActivity extends AppCompatActivity {
                         break;
                     default:
                         info = "Device's modem cannot be updated because there is no update file for this modem version. Rebooting.";
-                        tvInfo.setText(info);
-                        mainLayout.setBackgroundColor(Color.RED);
+                        updateTvInfo(info);
+                        updateBackgroundColor(Color.RED);
                         Logger.addLoggingInfo(info);
                         startRild();
 
                         Logger.uploadLogs(this, false, "FAIL\nNo update file for this modem version.\n\n");
-                        delayedShutdown(REBOOT_DELAY);
+//                        delayedShutdown(REBOOT_DELAY);
                         break;
                 }
                 break;
@@ -300,10 +310,14 @@ public class MainActivity extends AppCompatActivity {
                 switch(modemFirmwareVersion){
                     case "20.00.522.9":
                         String info = "Device has 20.00.522.9. Already updated.";
-                        tvInfo.setText(info);
-                        mainLayout.setBackgroundColor(Color.GREEN);
+                        updateTvInfo(info);
+                        updateBackgroundColor(Color.GREEN);
                         Logger.addLoggingInfo(info);
                         startRild();
+
+                        // Set boolean to updated
+                        context.getSharedPreferences("LTEModemUpdater", Context.MODE_PRIVATE).edit()
+                                .putBoolean("updated", true).apply();
 
                         // Upload results
                         updateFileType = V20_00_522_9;
@@ -311,8 +325,7 @@ public class MainActivity extends AppCompatActivity {
                         break;
                     case "20.00.522.7":
                         info = "Device has 20.00.522.7. Trying to update.";
-                        tvInfo.setText(info);
-                        mainLayout.setBackgroundColor(Color.YELLOW);
+                        updateTvInfo(info);
                         Logger.addLoggingInfo(info);
 
                         // Update modem
@@ -321,8 +334,7 @@ public class MainActivity extends AppCompatActivity {
                         break;
                     case "20.00.522.4":
                         info = "Device has 20.00.522.4. Trying to update.";
-                        tvInfo.setText(info);
-                        mainLayout.setBackgroundColor(Color.YELLOW);
+                        updateTvInfo(info);
                         Logger.addLoggingInfo(info);
 
                         // Update modem
@@ -331,25 +343,25 @@ public class MainActivity extends AppCompatActivity {
                         break;
                     default:
                         info = "Device's modem cannot be updated because there is no update file for this modem version. Rebooting.";
-                        tvInfo.setText(info);
-                        mainLayout.setBackgroundColor(Color.RED);
+                        updateTvInfo(info);
+                        updateBackgroundColor(Color.RED);
                         Logger.addLoggingInfo(info);
                         startRild();
 
                         Logger.uploadLogs(this, false, "FAIL\nNo update file for this modem version.\n\n");
-                        delayedShutdown(REBOOT_DELAY);
+//                        delayedShutdown(REBOOT_DELAY);
                         break;
                 }
                 break;
             default: // Unknown modem type.
                 String info = "Device's modem cannot be updated because there is no update file for this modem type.";
-                tvInfo.setText(info);
-                mainLayout.setBackgroundColor(Color.RED);
+                updateTvInfo(info);
+                updateBackgroundColor(Color.RED);
                 Logger.addLoggingInfo(info);
                 startRild();
 
                 Logger.uploadLogs(this, false, "FAIL\nNo update file for this modem version.\n\n");
-                delayedShutdown(REBOOT_DELAY);
+//                delayedShutdown(REBOOT_DELAY);
                 break;
         }
     }
@@ -366,18 +378,19 @@ public class MainActivity extends AppCompatActivity {
         if(result){
             runOnNewThread(updateRunnable);
 
-            progressBar.setVisibility(View.VISIBLE);
+            setProgressBarVisibility(View.VISIBLE);
             String info = "Sending update file to modem...";
-            tvInfo.setText(info);
+            updateTvInfo(info);
             Logger.addLoggingInfo(info);
         }else{
             String info = "Error loading update file or no update file found.";
-            tvInfo.setText(info);
-            mainLayout.setBackgroundColor(Color.YELLOW);
+            updateTvInfo(info);
+            updateBackgroundColor(Color.YELLOW);
             Logger.addLoggingInfo(info);
             startRild();
 
             Logger.uploadLogs(this, false, "FAIL\nError loading update file or no update file found.\n\n");
+            // TODO: try not to reboot in this case and handle this
 //            delayedShutdown(REBOOT_DELAY);
         }
     }
@@ -398,9 +411,11 @@ public class MainActivity extends AppCompatActivity {
                 updateInputStream = getResources().openRawResource(R.raw.update_034_10_to_034_11);
                 break;
             case V20_00_522_4:
-                return false;
+                updateInputStream = getResources().openRawResource(R.raw.update_522_4_to_522_9);
+                break;
             case V20_00_522_7:
-                return false;
+                updateInputStream = getResources().openRawResource(R.raw.update_522_7_to_522_9);
+                break;
             default:
                 String info = "ERROR: No update file selected properly. Cannot read in update file.";
                 Log.e(TAG, info);
@@ -646,7 +661,7 @@ public class MainActivity extends AppCompatActivity {
                 Logger.uploadLogs(context, true, "PASS\nSuccessfully update modem firmware version.\n\n");
             }else{
                 Logger.uploadLogs(context, false, "FAIL\nError updating modem firmware version.\n\n");
-                delayedShutdown(REBOOT_DELAY);
+//                delayedShutdown(REBOOT_DELAY);
             }
         }
     };
@@ -655,20 +670,20 @@ public class MainActivity extends AppCompatActivity {
         new Thread(runnable).start();
     }
 
-    private void delayedShutdown(final int delaySeconds) {
-        countDownTimer = new CountDownTimer(delaySeconds * 1000, 15000) {
-            public void onTick(long millisUntilFinished) {
-                Toast.makeText(context, String.format(Locale.getDefault(), "Rebooting the device in %d seconds.",
-                        (int) Math.ceil((float) millisUntilFinished / (float) 1000)), Toast.LENGTH_LONG).show();
-            }
-
-            public void onFinish() {
-                // Reboot the device
-                PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
-                pm.reboot(null);
-            }
-        }.start();
-    }
+//    private void delayedShutdown(final int delaySeconds) {
+//        countDownTimer = new CountDownTimer(delaySeconds * 1000, 15000) {
+//            public void onTick(long millisUntilFinished) {
+//                Toast.makeText(context, String.format(Locale.getDefault(), "Rebooting the device in %d seconds.",
+//                        (int) Math.ceil((float) millisUntilFinished / (float) 1000)), Toast.LENGTH_LONG).show();
+//            }
+//
+//            public void onFinish() {
+//                // Reboot the device
+//                PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+//                pm.reboot(null);
+//            }
+//        }.start();
+//    }
 
     private void cancelShutdown() {
         countDownTimer.cancel();
@@ -701,6 +716,15 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+    private void updateTvModemType(final String text) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                tvModemType.setText(text);
+            }
+        });
+    }
+
     private void updateTvModemVersion(final String text) {
         runOnUiThread(new Runnable() {
             @Override
@@ -724,6 +748,15 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void run() {
                 progressBar.setProgress(progress);
+            }
+        });
+    }
+
+    private void setProgressBarVisibility(final int visibility) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                progressBar.setVisibility(visibility);
             }
         });
     }

@@ -11,8 +11,8 @@ android {
         applicationId "com.micronet.a317modemupdater"
         minSdkVersion 15
         targetSdkVersion 26
-        versionCode 161
-        versionName "1.6.1"
+        versionCode 162
+        versionName "1.6.2"
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
         externalNativeBuild {
             cmake {
@@ -22,7 +22,8 @@ android {
     }
     buildTypes {
         release {
-            minifyEnabled false
+            minifyEnabled true
+            shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
             signingConfig signingConfigs.a317platformkey
         }
