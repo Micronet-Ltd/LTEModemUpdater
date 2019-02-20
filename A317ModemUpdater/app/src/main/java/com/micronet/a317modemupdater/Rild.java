@@ -79,12 +79,14 @@ class Rild {
             } catch (IOException e) {
                 Log.e(TAG, "Error rild not stopped correctly" + e.toString());
                 Logger.addLoggingInfo("Error stopping rild: " + e.toString());
+                startRild();
                 return false;
             }
         }
 
         Log.e(TAG, "Error rild not stopped correctly");
         Logger.addLoggingInfo("Error stopping rild");
+        startRild();
         return false;
     }
 

@@ -11,7 +11,6 @@ import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.CountDownTimer;
-import android.os.PowerManager;
 import android.support.constraint.ConstraintLayout;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
@@ -19,7 +18,6 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.ProgressBar;
 import android.widget.TextView;
-
 import android.widget.Toast;
 import java.io.InputStream;
 import java.text.SimpleDateFormat;
@@ -28,12 +26,13 @@ import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
 
-    private final static String TAG = "Updater-Main";
-    private final Context context = this;
+    private static final String TAG = "Updater-Main";
     private static final String UPDATE_SUCCESSFUL = "com.micronet.dsc.resetrb.modemupdater.UPDATE_SUCCESSFUL";
 
-    private Port port;
+    private final Context context = this;
+    private final String PORT_PATH = "/dev/ttyACM0";
 
+    private Port port;
     private byte[] updateFileBytes;
     private int totalUpdateFileSize;
     private int updateFileType;
@@ -49,18 +48,14 @@ public class MainActivity extends AppCompatActivity {
     private CountDownTimer countDownTimer;
     private final int REBOOT_DELAY = 300;
 
-    private final String PORT_PATH = "/dev/ttyACM0";
-
     // Modem Firmware Versions
     private final int V20_00_032 = 1;
     private final int V20_00_032_B041 = 2;
     private final int V20_00_034_4 = 3;
     private final int V20_00_034_6 = 4;
     private final int V20_00_034_10 = 5;
-
     private final int V20_00_522_4 = 11;
     private final int V20_00_522_7 = 12;
-
     private final int V20_00_034_11 = 20;
     private final int V20_00_522_9 = 21;
 
@@ -68,41 +63,46 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // Check to see if device is already updated and uploaded.
+        // First check to see if device is already updated and uploaded.
         boolean updated = isUpdated();
         boolean uploaded = isUploaded();
-        if(updated && uploaded){
-            Toast.makeText(context, "Modem firmware already updated and uploaded. Activity not running.", Toast.LENGTH_LONG).show();
-            Log.i(TAG, "Modem firmware is already updated and uploaded. Activity not running.");
 
-            // Resend broadcast to resetrb to begin clean up
+        // We check three cases:
+        //  - If the modem is updated and logs are uploaded then don't start the application and send broadcast of a successful update.
+        //  - If the modem is updated but the logs aren't uploaded then keep trying to upload the logs.
+        //  - Else upload precheck log to Dropbox, check the modem firmware version, and update if needed.
+        if (updated && uploaded) {
+            // Don't start the application and display toast.
+            String modemResult = "Modem firmware already updated and uploaded. Activity not starting.";
+            Toast.makeText(context, modemResult, Toast.LENGTH_LONG).show();
+            Log.i(TAG, modemResult);
+
+            // Resend broadcast to resetrb to begin clean up. ResetRB will clear Communitake data and uninstall this application.
             Intent successfulUpdateIntent = new Intent(UPDATE_SUCCESSFUL);
             sendBroadcast(successfulUpdateIntent);
             finish();
-        }else if(updated){
-            // Only work on uploading logs
+        } else if (updated) {
+            // Only upload the logs.
             Log.i(TAG, "Modem firmware already updated but logs not uploaded.");
 
-            // Set content view
+            // Set up UI to inform user that logs are trying to be uploaded.
             setContentView(R.layout.activity_main);
-
-            // Only upload logs, don't communicate with the modem.
             setUpUi();
             tvInfo.setText("Modem Firmware already updated. Trying to upload logs.");
+
+            // Start process of uploading logs from database.
             Logger.createNew(this);
-            Logger.uploadLogs(context, true, null);
-        }else{
-            // Try to update modem firmware
+            Logger.uploadSavedLogs(context);
+        } else {
+            // Check modem firmware and update if needed.
             Log.i(TAG, "Modem firmware hasn't been updated yet.");
 
-            // Set content view
+            // Setup UI.
             setContentView(R.layout.activity_main);
-
-            // Setup UI, create new logger, and create new port to communicate with the modem.
             setUpUi();
             tvInfo.setText("Preparing to check modem version...");
 
-            // TODO: Decouple from the UI. start on new thread
+            // TODO: Decouple from the UI. Start on new thread. Potentially new service or different class? Whatever would be easiest and best.
             runOnNewThread(new Runnable() {
                 @Override
                 public void run() {
@@ -122,8 +122,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * Used to detect when a configuration change happens and makes sure to not restart the app. With A317s there is usually a mcc/mnc change on
-     * boot that causes the app to restart if we didn't have this method.
+     * Used to detect when a configuration change happens and makes sure to not restart the app. With A317s there is usually a mcc/mnc change on boot
+     * that causes the app to restart if we didn't have this method.
      */
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
@@ -157,19 +157,19 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    private void initiateApplication(){
+    private void initiateApplication() {
         Logger.createNew(context);
         port = new Port(PORT_PATH);
 
         // TODO: Implement a backoff method to try to make sure logs are actually uploaded if possible.
         // Try to upload log stating that you will be trying to check and update modem.
         DropBox dropBox = new DropBox(context);
-        for(int i = 0; i < 10; i++){
-            if(dropBox.preUploadLog(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Calendar.getInstance().getTime()),
-                    Logger.serial)){
+        for (int i = 0; i < 10; i++) {
+            if (dropBox.preUploadLog(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Calendar.getInstance().getTime()),
+                    Logger.serial)) {
                 Log.i(TAG, "Uploaded precheck log to dropbox.");
                 break;
-            }else{
+            } else {
                 sleep(100);
             }
         }
@@ -180,21 +180,22 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * Handles stopping rild, setting up the port, and trying to communicate with the modem. If it can then it will try to update the modem
-     * if an update is available, else it will log the errors and reboot the device.
+     * Handles stopping rild, setting up the port, and trying to communicate with the modem. If it can then it will try to update the modem if an
+     * update is available, else it will log the errors and reboot the device.
      */
-    private void setupPortAndModemCommunication(){
+    private void setupPortAndModemCommunication() {
         // Try to stop rild to communicate with the modem, if it fails then reboot.
         if (!stopRild()) {
             // Log errors and update UI
-            updateTvInfo("Error killing rild. Could not properly update modem firmware. Reboot device and try again.");
+            String err = "Error killing rild. Could not properly update modem firmware. Reboot device and try again.";
+            updateTvInfo(err);
+            Log.e(TAG, err);
+            Logger.addLoggingInfo(err);
             updateBackgroundColor(Color.YELLOW);
-            Log.e(TAG, "Error killing rild. Could not properly update modem firmware.");
-            Logger.addLoggingInfo("Error killing rild. Could not properly update modem firmware.");
-            startRild();
 
-            // Upload logs and begin reboot process
+            // Upload logs and try to handle error
             Logger.uploadLogs(this, false, "FAIL\nCouldn't stop rild properly.\n\n");
+            // TODO: Never actually seen this happen but it might just be worth waiting and retrying later on.
 //            delayedShutdown(REBOOT_DELAY);
             return;
         }
@@ -202,13 +203,14 @@ public class MainActivity extends AppCompatActivity {
         // Try to set up the port to communicate with the modem, if it fails then reboot.
         if (!port.setupPort()) {
             // Log errors and update UI
-            updateTvInfo("Could not setup the port properly for updating modem firmware. Reboot device and try again.");
+            String err = "Could not setup the port properly for updating modem firmware. Reboot device and try again.";
+            updateTvInfo(err);
+            Logger.addLoggingInfo(err);
             updateBackgroundColor(Color.YELLOW);
-            Logger.addLoggingInfo("Could not setup the port properly for updating modem firmware.");
-            startRild();
 
             // Upload logs and begin reboot process
             Logger.uploadLogs(this, false, "FAIL\nCouldn't setup port properly to communicate with modem.\n\n");
+            // TODO: Better handling of this error without shutting down
 //            delayedShutdown(REBOOT_DELAY);
             return;
         }
@@ -251,7 +253,7 @@ public class MainActivity extends AppCompatActivity {
     private void checkIfUpdatesAreAvailable(String modemType, String modemFirmwareVersion) {
         switch (modemType) {
             case "LE910-SVL":
-                switch(modemFirmwareVersion){
+                switch (modemFirmwareVersion) {
                     case "20.00.034.11":
                         String info = "Device has 20.00.034.11. Already updated.";
                         updateTvInfo(info);
@@ -307,7 +309,7 @@ public class MainActivity extends AppCompatActivity {
                 }
                 break;
             case "LE910-NA1":
-                switch(modemFirmwareVersion){
+                switch (modemFirmwareVersion) {
                     case "20.00.522.9":
                         String info = "Device has 20.00.522.9. Already updated.";
                         updateTvInfo(info);
@@ -375,14 +377,14 @@ public class MainActivity extends AppCompatActivity {
     private void updateModem() {
         boolean result = readInUpdateFile();
 
-        if(result){
+        if (result) {
             runOnNewThread(updateRunnable);
 
             setProgressBarVisibility(View.VISIBLE);
             String info = "Sending update file to modem...";
             updateTvInfo(info);
             Logger.addLoggingInfo(info);
-        }else{
+        } else {
             String info = "Error loading update file or no update file found.";
             updateTvInfo(info);
             updateBackgroundColor(Color.YELLOW);
@@ -617,7 +619,7 @@ public class MainActivity extends AppCompatActivity {
             if (updateFileType == 3 || updateFileType == 4 || updateFileType == 5) {
                 updateTvInfo("SUCCESS: Device modem updated successfully to 20.00.034.11.");
                 Logger.addLoggingInfo("SUCCESS: Device modem updated successfully to 20.00.034.11.");
-            }else if(updateFileType == 11 || updateFileType == 12){
+            } else if (updateFileType == 11 || updateFileType == 12) {
                 updateTvInfo("SUCCESS: Device modem updated successfully to 20.00.522.9.");
                 Logger.addLoggingInfo("SUCCESS: Device modem updated successfully to 20.00.522.9.");
             }
@@ -638,12 +640,12 @@ public class MainActivity extends AppCompatActivity {
     // **************************************************************************************
     // **************************************************************************************
 
-    private boolean isUpdated(){
+    private boolean isUpdated() {
         SharedPreferences sharedPreferences = this.getSharedPreferences("LTEModemUpdater", Context.MODE_PRIVATE);
         return sharedPreferences.getBoolean("updated", false);
     }
 
-    private boolean isUploaded(){
+    private boolean isUploaded() {
         SharedPreferences sharedPreferences = this.getSharedPreferences("LTEModemUpdater", Context.MODE_PRIVATE);
         return sharedPreferences.getBoolean("uploaded", false);
     }
@@ -659,7 +661,7 @@ public class MainActivity extends AppCompatActivity {
                 context.getSharedPreferences("LTEModemUpdater", Context.MODE_PRIVATE).edit()
                         .putBoolean("updated", true).apply();
                 Logger.uploadLogs(context, true, "PASS\nSuccessfully update modem firmware version.\n\n");
-            }else{
+            } else {
                 Logger.uploadLogs(context, false, "FAIL\nError updating modem firmware version.\n\n");
 //                delayedShutdown(REBOOT_DELAY);
             }

@@ -105,6 +105,7 @@ class Port {
         } catch (Exception e) {
             Log.e(TAG, e.toString());
             Logger.addLoggingInfo("Error setting up port: " + e.toString());
+            startRild();
             return false;
         }
 

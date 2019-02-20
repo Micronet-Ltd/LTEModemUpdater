@@ -75,6 +75,11 @@ class Logger {
         executorService.execute(getUploadRunnable(context, pass, summary));
     }
 
+    static synchronized void uploadSavedLogs(Context context) {
+        executorService = Executors.newFixedThreadPool(1);
+        executorService.execute(getUploadRunnable(context, true, null));
+    }
+
     private static Runnable getUploadRunnable(final Context context, final boolean pass, @Nullable final String summary) {
         Runnable runnable = new Runnable() {
             @Override
