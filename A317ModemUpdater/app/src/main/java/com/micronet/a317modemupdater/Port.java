@@ -210,18 +210,27 @@ class Port {
     }
 
     void skipAvailable(int timeout) {
-        long start = System.currentTimeMillis();
         try {
-            while (System.currentTimeMillis() - start < timeout) {
-                int available = inputStream.available();
-                if (available > 0) {
-                    long skipped = inputStream.skip(available);
-                    Log.i(TAG, String.format("Skipped %d bytes", skipped));
+            Callable<Void> readTask = new Callable<Void>() {
+                @Override
+                public Void call() throws Exception {
+                    while (true){
+                        int available = inputStream.available();
+                        if (available > 0) {
+                            long skipped = inputStream.skip(available);
+                            Log.i(TAG, String.format("Skipped %d bytes", skipped));
+                        }
+                        Thread.sleep(50);
+                    }
                 }
+            };
 
-                Thread.sleep(50);
-            }
-        } catch (Exception e) {
+            ExecutorService executor = Executors.newFixedThreadPool(1);
+            Future<Void> future = executor.submit(readTask);
+            future.get(timeout, TimeUnit.MILLISECONDS);
+        } catch(TimeoutException te){
+            // Callable will timeout.
+        }catch (Exception e) {
             Log.e(TAG, e.toString());
         }
     }
