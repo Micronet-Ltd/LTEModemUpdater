@@ -80,33 +80,73 @@ class Port {
     }
 
     boolean setupPort() {
-        if (!port.exists()) {
-            Log.e(TAG, "Port does not exist. Could not properly update modem firmware. Restarting rild.");
-            Logger.addLoggingInfo("Port does not exist. Could not properly update modem firmware. Restarting rild.");
+        int numberOfRetries = 10;
 
-            startRild();
-            return false;
-        }
+        for(int i = 0; i < numberOfRetries; i++){
+            if (!port.exists()) {
+                if(i == numberOfRetries-1) {
+                    // This is the last
+                    Log.e(TAG, "Port does not exist. Could not properly update modem firmware. Restarting rild.");
+                    Logger.addLoggingInfo("Port does not exist. Could not properly update modem firmware. Restarting rild.");
 
-        try {
-            // Set up the port with the correct flags.
-            mFd = open("/dev/ttyACM0", 9600);
-            if (mFd == null) {
-                Log.e(TAG, "Could not open the port properly for updating modem firmware. Restarting rild.");
-                Logger.addLoggingInfo("Could not open the port properly for updating modem firmware. Restarting rild.");
-                startRild();
-                return false;
+                    startRild();
+                    return false;
+                }
+
+                // Sleep and try again to see if ports enumerate
+                try {
+                    Thread.sleep(200);
+                } catch (InterruptedException e) {
+                    Log.e(TAG, e.toString());
+                }
+
+                continue;
             }
-            close();
 
-            // Create streams to and from the port
-            inputStream = new BufferedInputStream(new FileInputStream(port));
-            outputStream = new BufferedOutputStream(new FileOutputStream(port));
-        } catch (Exception e) {
-            Log.e(TAG, e.toString());
-            Logger.addLoggingInfo("Error setting up port: " + e.toString());
-            startRild();
-            return false;
+            try {
+                // Set up the port with the correct flags.
+                mFd = open("/dev/ttyACM0", 9600);
+                if (mFd == null) {
+                    if(i == numberOfRetries-1) {
+                        Log.e(TAG, "Could not open the port properly for updating modem firmware. Restarting rild.");
+                        Logger.addLoggingInfo("Could not open the port properly for updating modem firmware. Restarting rild.");
+                        startRild();
+                        return false;
+                    }
+
+                    // Sleep and try again to see if ports enumerate
+                    try {
+                        Thread.sleep(200);
+                    } catch (InterruptedException e) {
+                        Log.e(TAG, e.toString());
+                    }
+
+                    continue;
+                }
+                close();
+
+                // Create streams to and from the port
+                inputStream = new BufferedInputStream(new FileInputStream(port));
+                outputStream = new BufferedOutputStream(new FileOutputStream(port));
+            } catch (Exception e) {
+                if(i == numberOfRetries-1){
+                    Log.e(TAG, e.toString());
+                    Logger.addLoggingInfo("Error setting up port: " + e.toString());
+                    startRild();
+                    return false;
+                }
+
+                try {
+                    Thread.sleep(200);
+                } catch (InterruptedException ie) {
+                    Log.e(TAG, ie.toString());
+                }
+
+                continue;
+            }
+
+            // Successful setup of the port
+            break;
         }
 
         Logger.addLoggingInfo("Successfully setup port");

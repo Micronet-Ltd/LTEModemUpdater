@@ -11,6 +11,7 @@ import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.CountDownTimer;
+import android.os.PowerManager;
 import android.support.constraint.ConstraintLayout;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
@@ -102,7 +103,7 @@ public class MainActivity extends AppCompatActivity {
             setUpUi();
             tvInfo.setText("Preparing to check modem version...");
 
-            // TODO: Decouple from the UI. Start on new thread. Potentially new service or different class? Whatever would be easiest and best.
+            // Start checking modem firmware on a new thread
             runOnNewThread(new Runnable() {
                 @Override
                 public void run() {
@@ -195,8 +196,10 @@ public class MainActivity extends AppCompatActivity {
 
             // Upload logs and try to handle error
             Logger.uploadLogs(this, false, "FAIL\nCouldn't stop rild properly.\n\n");
-            // TODO: Never actually seen this happen but it might just be worth waiting and retrying later on.
-//            delayedShutdown(REBOOT_DELAY);
+
+            // stopRild() tries 10 times to stop rild. If it can't stop it at that point then reboot device
+            // TODO: Decide if anything more needs to be done here
+            delayedShutdown(REBOOT_DELAY);
             return;
         }
 
@@ -210,8 +213,10 @@ public class MainActivity extends AppCompatActivity {
 
             // Upload logs and begin reboot process
             Logger.uploadLogs(this, false, "FAIL\nCouldn't setup port properly to communicate with modem.\n\n");
-            // TODO: Better handling of this error without shutting down
-//            delayedShutdown(REBOOT_DELAY);
+
+            // setupPort() tries 10 times to setup port. If it can't set it up at that point then reboot device
+            // TODO: Decide if anything more needs to be done here
+            delayedShutdown(REBOOT_DELAY);
             return;
         }
 
@@ -229,7 +234,10 @@ public class MainActivity extends AppCompatActivity {
 
             // Upload logs and begin reboot process
             Logger.uploadLogs(this, false, "FAIL\nCouldn't communicate with modem.\n\n");
-//            delayedShutdown(REBOOT_DELAY);
+
+            // testConnection() tries 10 times to communicate with port. If it can't set it up at that point then reboot device
+            // TODO: Decide if anything more needs to be done here
+            delayedShutdown(REBOOT_DELAY);
         }
     }
 
@@ -297,13 +305,15 @@ public class MainActivity extends AppCompatActivity {
                         updateModem();
                         break;
                     default:
-                        info = "Device's modem cannot be updated because there is no update file for this modem version. Rebooting.";
+                        info = "Device's modem cannot be updated because there is no update file for this modem version.";
                         updateTvInfo(info);
                         updateBackgroundColor(Color.RED);
                         Logger.addLoggingInfo(info);
                         startRild();
 
                         Logger.uploadLogs(this, false, "FAIL\nNo update file for this modem version.\n\n");
+
+                        // TODO: What should be done in this case?
 //                        delayedShutdown(REBOOT_DELAY);
                         break;
                 }
@@ -344,13 +354,15 @@ public class MainActivity extends AppCompatActivity {
                         updateModem();
                         break;
                     default:
-                        info = "Device's modem cannot be updated because there is no update file for this modem version. Rebooting.";
+                        info = "Device's modem cannot be updated because there is no update file for this modem version.";
                         updateTvInfo(info);
                         updateBackgroundColor(Color.RED);
                         Logger.addLoggingInfo(info);
                         startRild();
 
                         Logger.uploadLogs(this, false, "FAIL\nNo update file for this modem version.\n\n");
+
+                        // TODO: What should be done in this case?
 //                        delayedShutdown(REBOOT_DELAY);
                         break;
                 }
@@ -363,6 +375,8 @@ public class MainActivity extends AppCompatActivity {
                 startRild();
 
                 Logger.uploadLogs(this, false, "FAIL\nNo update file for this modem version.\n\n");
+
+                // TODO: What should be done in this case? If modem type is unknown then that's an odd issue
 //                delayedShutdown(REBOOT_DELAY);
                 break;
         }
@@ -392,7 +406,8 @@ public class MainActivity extends AppCompatActivity {
             startRild();
 
             Logger.uploadLogs(this, false, "FAIL\nError loading update file or no update file found.\n\n");
-            // TODO: try not to reboot in this case and handle this
+
+            // TODO: What should be done in this case?
 //            delayedShutdown(REBOOT_DELAY);
         }
     }
@@ -653,11 +668,24 @@ public class MainActivity extends AppCompatActivity {
     private Runnable updateRunnable = new Runnable() {
         @Override
         public void run() {
-            boolean updated = updateModemFirmware();
-            startRild();
+            int numberOfRetries = 5;
+            boolean updated = false;
+
+            for(int i = 0; i < numberOfRetries; i++){
+                updated = updateModemFirmware();
+
+                // If the modem firmware has been updated successfully then upload results.
+                if(updated){
+                    break;
+                }else{
+                    // Restart the modem and then try to update again.
+                    restartModem();
+                }
+            }
 
             // Upload results and reboot if needed.
             if (updated) {
+                startRild();
                 context.getSharedPreferences("LTEModemUpdater", Context.MODE_PRIVATE).edit()
                         .putBoolean("updated", true).apply();
                 Logger.uploadLogs(context, true, "PASS\nSuccessfully update modem firmware version.\n\n");
@@ -672,20 +700,40 @@ public class MainActivity extends AppCompatActivity {
         new Thread(runnable).start();
     }
 
-//    private void delayedShutdown(final int delaySeconds) {
-//        countDownTimer = new CountDownTimer(delaySeconds * 1000, 15000) {
-//            public void onTick(long millisUntilFinished) {
-//                Toast.makeText(context, String.format(Locale.getDefault(), "Rebooting the device in %d seconds.",
-//                        (int) Math.ceil((float) millisUntilFinished / (float) 1000)), Toast.LENGTH_LONG).show();
-//            }
-//
-//            public void onFinish() {
-//                // Reboot the device
-//                PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
-//                pm.reboot(null);
-//            }
-//        }.start();
-//    }
+    private void restartModem() {
+
+        // Sleeping at least 5 seconds from last AT command sent because of recommendation in docs.
+        try {
+            Thread.sleep(5000);
+        } catch (InterruptedException e) {
+            Log.e(TAG, e.toString());
+        }
+
+        // Sent command to reboot modem
+        port.writeRead("AT#ENHRST=1,0\r");
+
+        // Sleep a certain amount of time to wait for modem to restart
+        try {
+            Thread.sleep(15000);
+        } catch (InterruptedException e) {
+            Log.e(TAG, e.toString());
+        }
+    }
+
+    private void delayedShutdown(final int delaySeconds) {
+        countDownTimer = new CountDownTimer(delaySeconds * 1000, 15000) {
+            public void onTick(long millisUntilFinished) {
+                Toast.makeText(context, String.format(Locale.getDefault(), "Rebooting the device in %d seconds.",
+                        (int) Math.ceil((float) millisUntilFinished / (float) 1000)), Toast.LENGTH_LONG).show();
+            }
+
+            public void onFinish() {
+                // Reboot the device
+                PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+                pm.reboot(null);
+            }
+        }.start();
+    }
 
     private void cancelShutdown() {
         countDownTimer.cancel();
