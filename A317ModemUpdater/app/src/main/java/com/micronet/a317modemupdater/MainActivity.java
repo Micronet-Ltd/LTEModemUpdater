@@ -11,6 +11,7 @@ import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.CountDownTimer;
+import android.os.Looper;
 import android.os.PowerManager;
 import android.support.constraint.ConstraintLayout;
 import android.support.v7.app.AppCompatActivity;
@@ -82,14 +83,16 @@ public class MainActivity extends AppCompatActivity {
             Intent successfulUpdateIntent = new Intent(UPDATE_SUCCESSFUL);
             sendBroadcast(successfulUpdateIntent);
             finish();
-        } else if (updated) {
-            // Only upload the logs.
+        }else if(updated){
+
+            Toast.makeText(context, "Modem firmware already updated but logs not uploaded.", Toast.LENGTH_LONG).show();
+            // Only work on uploading logs
             Log.i(TAG, "Modem firmware already updated but logs not uploaded.");
 
             // Set up UI to inform user that logs are trying to be uploaded.
             setContentView(R.layout.activity_main);
             setUpUi();
-            tvInfo.setText("Modem Firmware already updated. Trying to upload logs.");
+            tvInfo.setText("Modem Firmware already updated. Trying to upload logs if any.");
 
             // Start process of uploading logs from database.
             Logger.createNew(this);
@@ -97,6 +100,7 @@ public class MainActivity extends AppCompatActivity {
         } else {
             // Check modem firmware and update if needed.
             Log.i(TAG, "Modem firmware hasn't been updated yet.");
+            Toast.makeText(context, "Modem firmware hasn't been updated yet.", Toast.LENGTH_LONG).show();
 
             // Setup UI.
             setContentView(R.layout.activity_main);
@@ -113,11 +117,18 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private void logDeviceInfo() {
+        Logger.addLoggingInfo(String.format("OS Build string: %s", Build.FINGERPRINT));
+        for (String key: System.getProperties().stringPropertyNames()) {
+            Logger.addLoggingInfo(String.format("%s: %s", key, System.getProperty(key)));
+        }
+    }
+
     @Override
     protected void onDestroy() {
         super.onDestroy();
-
         if (Logger.db != null && Logger.db.isOpen()) {
+            Log.d(TAG, "Closing modem upgrader log database");
             Logger.db.close();
         }
     }
@@ -160,6 +171,8 @@ public class MainActivity extends AppCompatActivity {
 
     private void initiateApplication() {
         Logger.createNew(context);
+
+        logDeviceInfo();
         port = new Port(PORT_PATH);
 
         // TODO: Implement a backoff method to try to make sure logs are actually uploaded if possible.
@@ -688,7 +701,21 @@ public class MainActivity extends AppCompatActivity {
                 startRild();
                 context.getSharedPreferences("LTEModemUpdater", Context.MODE_PRIVATE).edit()
                         .putBoolean("updated", true).apply();
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        updateBackgroundColor(Color.RED);
+                        updateTvInfo("Do not power off.  Sending logs");
+                    }
+                });
                 Logger.uploadLogs(context, true, "PASS\nSuccessfully update modem firmware version.\n\n");
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        updateBackgroundColor(Color.GREEN);
+                        updateTvInfo("Logs sent");
+                    }
+                });
             } else {
                 Logger.uploadLogs(context, false, "FAIL\nError updating modem firmware version.\n\n");
 //                delayedShutdown(REBOOT_DELAY);
