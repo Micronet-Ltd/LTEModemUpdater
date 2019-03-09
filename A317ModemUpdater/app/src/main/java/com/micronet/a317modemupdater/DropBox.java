@@ -50,7 +50,7 @@ class DropBox {
         try {
             InputStream in = new ByteArrayInputStream(("About to check modem firmware version.\nIf update is available then modem firmware"
                     + " will try to be updated.").getBytes(Charset.forName("UTF-8")));
-            FileMetadata metadata = client.files().uploadBuilder("/a317ModemUpdater/" + id + "/preupload " + dt + ".txt")
+            FileMetadata metadata = client.files().uploadBuilder("/a317ModemUpdater/" + id + "/PreCheck " + dt + ".txt")
                     .withMode(WriteMode.ADD)
                     .withAutorename(true).uploadAndFinish(in);
         } catch (NetworkIOException e) {

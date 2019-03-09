@@ -21,8 +21,12 @@ import android.widget.Button;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
+import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Locale;
 
@@ -119,8 +123,13 @@ public class MainActivity extends AppCompatActivity {
 
     private void logDeviceInfo() {
         Logger.addLoggingInfo(String.format("OS Build string: %s", Build.FINGERPRINT));
-        for (String key: System.getProperties().stringPropertyNames()) {
-            Logger.addLoggingInfo(String.format("%s: %s", key, System.getProperty(key)));
+
+        try{
+            for (String key: getDeviceProperties()) {
+                Logger.addLoggingInfo(key);
+            }
+        }catch (Exception e){
+            Log.e(TAG, e.toString());
         }
     }
 
@@ -170,6 +179,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void initiateApplication() {
+        Looper.prepare();
         Logger.createNew(context);
 
         logDeviceInfo();
@@ -701,21 +711,11 @@ public class MainActivity extends AppCompatActivity {
                 startRild();
                 context.getSharedPreferences("LTEModemUpdater", Context.MODE_PRIVATE).edit()
                         .putBoolean("updated", true).apply();
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        updateBackgroundColor(Color.RED);
-                        updateTvInfo("Do not power off.  Sending logs");
-                    }
-                });
+
+                updateBackgroundColor(Color.YELLOW);
+                updateTvInfo("Do not power off.  Sending logs");
+
                 Logger.uploadLogs(context, true, "PASS\nSuccessfully update modem firmware version.\n\n");
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        updateBackgroundColor(Color.GREEN);
-                        updateTvInfo("Logs sent");
-                    }
-                });
             } else {
                 Logger.uploadLogs(context, false, "FAIL\nError updating modem firmware version.\n\n");
 //                delayedShutdown(REBOOT_DELAY);
@@ -838,5 +838,17 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+    private ArrayList<String> getDeviceProperties() throws IOException {
+        ArrayList<String> deviceProperties = new ArrayList<>();
 
+        BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(Runtime.getRuntime().exec("/system/bin/getprop").getInputStream()));
+        String line;
+        while ((line = bufferedReader.readLine()) != null) {
+            deviceProperties.add(line);
+        }
+
+        bufferedReader.close();
+
+        return deviceProperties;
+    }
 }

@@ -12,6 +12,7 @@ import android.widget.Toast;
 
 import com.micronet.a317modemupdater.*;
 
+import com.micronet.a317modemupdater.database.LogDatabase;
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -40,9 +41,8 @@ public class NetworkStateReceiver extends BroadcastReceiver {
     }
 
     private void handleReconnect(Context context) {
-        Toast.makeText(context, "Uploading logs", Toast.LENGTH_LONG).show();
-        Logger.uploadLogs(context, true, null);
-        Log.d(TAG, "Logs uploaded");
+//        Toast.makeText(context, "Uploading logs", Toast.LENGTH_LONG).show();
+        Logger.uploadSavedLogs(context);
     }
 
     private boolean canReachDropbox() {

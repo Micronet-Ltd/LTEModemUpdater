@@ -13,7 +13,6 @@ import android.os.Looper;
 import android.support.annotation.Nullable;
 import android.telephony.TelephonyManager;
 import android.util.Log;
-import android.view.ContextThemeWrapper;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -27,6 +26,7 @@ import java.util.Calendar;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * The Logger class is used to keep track of the results of trying to update the modem.
@@ -40,6 +40,7 @@ public class Logger {
     static LogDatabase db;
     private static ExecutorService executorService;
     private static Context context;
+    private static AtomicBoolean uploadRunning;
 
     private static final String UPDATE_SUCCESSFUL = "com.micronet.dsc.resetrb.modemupdater.UPDATE_SUCCESSFUL";
 
@@ -64,6 +65,8 @@ public class Logger {
         }
 
         db = Room.databaseBuilder(context, LogDatabase.class, "logdb").build();
+
+        uploadRunning = new AtomicBoolean(false);
     }
 
     /**
@@ -73,7 +76,7 @@ public class Logger {
      */
     static synchronized void addLoggingInfo(String info) {
         // Note: The tag being separate is intentional.  We want to filter stuff being added.
-        Log.d("addLoggingInfo", info);
+//        Log.d("addLoggingInfo", info);
         String temp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Calendar.getInstance().getTime()) + ": "
                 + info.replaceAll("\n+", "\n") + "\n";
 
@@ -96,29 +99,23 @@ public class Logger {
      * Insert new log in database and upload all logs.
      */
     public static synchronized void uploadLogs(final Context context, boolean pass, @Nullable String summary) {
-        Log.d(TAG, "About to toast");
-
-//        Context applicationContext = context.getApplicationContext();
-//        Toast toast = Toast.makeText(applicationContext, "Uploading logs. Do not power off.", Toast.LENGTH_LONG);
-//        LinearLayout toastLayout = new LinearLayout(applicationContext);
-//        toastLayout.setOrientation(LinearLayout.HORIZONTAL);
-//        toastLayout.setBackgroundColor(Color.YELLOW);
-//        ImageView warningView = new ImageView(applicationContext);
-//        warningView.setImageResource(R.mipmap.warning);
-//        toastLayout.addView(warningView);
-//        TextView textView = new TextView(applicationContext);
-//        textView.setText("Uploading logs. Do not power off.");
-//        toastLayout.addView(textView);
-//        toast.setView(toastLayout);
-//        toast.show();
-        Log.d(TAG, "toasted");
+        uploadRunning.set(true);
         executorService = Executors.newFixedThreadPool(1);
         executorService.execute(getUploadRunnable(context, pass, summary));
     }
 
-    static synchronized void uploadSavedLogs(Context context) {
-        executorService = Executors.newFixedThreadPool(1);
-        executorService.execute(getUploadRunnable(context, true, null));
+    public static synchronized void uploadSavedLogs(Context context) {
+        if(!uploadRunning.get() && !allLogsUploaded()){
+            uploadRunning.set(true);
+            executorService = Executors.newFixedThreadPool(1);
+            executorService.execute(getUploadRunnable(context, true, null));
+        }else{
+            if(allLogsUploaded()){
+                Log.v(TAG, "All logs are already uploaded.");
+            }else {
+                Log.v(TAG, "Upload already running.");
+            }
+        }
     }
 
     private static Runnable getUploadRunnable(final Context context, final boolean pass, @Nullable final String summary) {
@@ -142,11 +139,11 @@ public class Logger {
 
                 Log.i(TAG, String.format("There are %d logs to upload.", logs.size()));
 
-                Log.d(TAG, "Making toast");
+//                Log.d(TAG, "Making toast");
                 new Handler(Looper.getMainLooper()).post(new Runnable() {
                     @Override
                     public void run() {
-                        Log.d(TAG, "In toast runnable");
+//                        Log.d(TAG, "In toast runnable");
                         Toast toast = Toast.makeText(context, "Uploading logs. Do not power off.", Toast.LENGTH_LONG);
                         LinearLayout toastLayout = new LinearLayout(context);
                         toastLayout.setOrientation(LinearLayout.HORIZONTAL);
@@ -181,12 +178,15 @@ public class Logger {
                         Intent successfulUpdateIntent = new Intent(UPDATE_SUCCESSFUL);
                         context.sendBroadcast(successfulUpdateIntent);
                         Log.i(TAG, "All logs uploaded and firmware is updated. Sending broadcast to cleanup.");
+                        uploadRunning.set(false);
                     }else{
                         Log.i(TAG, "All logs uploaded but firmware is not updated.");
+                        uploadRunning.set(false);
                     }
                 }else{
                     context.getSharedPreferences("LTEModemUpdater", Context.MODE_PRIVATE).edit()
                             .putBoolean("uploaded", false).apply();
+                    uploadRunning.set(false);
                 }
             }
         };
