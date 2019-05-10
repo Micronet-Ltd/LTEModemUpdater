@@ -22,7 +22,7 @@ public class PortTest {
     @Test
     public void getModemVersionAndTypeStressTest(){
         for(int i = 0; i < 5; i++){
-            Logger.createNew(InstrumentationRegistry.getContext());
+            Logger.prepareLogger(InstrumentationRegistry.getContext());
 
             Port port = setupPortAndTestConnection();
 
@@ -39,7 +39,7 @@ public class PortTest {
     @Test
     public void openClosePortStressTest() {
         for(int i = 0; i < 20; i++){
-            Logger.createNew(InstrumentationRegistry.getContext());
+            Logger.prepareLogger(InstrumentationRegistry.getContext());
 
             Port port = setupPortAndTestConnection();
 
@@ -54,7 +54,7 @@ public class PortTest {
     @Test
     public void testConnectionStressTest() {
         for(int i = 0; i < 5; i++){
-            Logger.createNew(InstrumentationRegistry.getContext());
+            Logger.prepareLogger(InstrumentationRegistry.getContext());
 
             assertTrue(Rild.stopRild());
 

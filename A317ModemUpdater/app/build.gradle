@@ -11,14 +11,16 @@ android {
         applicationId "com.micronet.a317modemupdater"
         minSdkVersion 15
         targetSdkVersion 26
-        versionCode 162
-        versionName "1.6.2"
+        versionCode 23
+        versionName "1.7.0"
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
         externalNativeBuild {
             cmake {
                 cppFlags ""
             }
         }
+
+        setProperty("archivesBaseName", "LTEModemUpdater-v" + versionName)
     }
     buildTypes {
         release {

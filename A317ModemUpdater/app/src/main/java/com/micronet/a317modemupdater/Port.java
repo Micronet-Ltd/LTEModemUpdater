@@ -24,13 +24,12 @@ class Port {
 
     private static final String TAG = "Updater-Port";
 
+    @Keep
+    private FileDescriptor mFd;
     private File port;
 
     private BufferedInputStream inputStream;
     private BufferedOutputStream outputStream;
-
-    @Keep
-    private FileDescriptor mFd;
 
     private byte[] readBytes;
     private char[] readChars;
@@ -40,7 +39,6 @@ class Port {
     }
 
     private native static FileDescriptor open(String path, int Baudrate);
-
     private native void close();
 
     Port(String path) {
@@ -82,9 +80,9 @@ class Port {
     boolean setupPort() {
         int numberOfRetries = 10;
 
-        for(int i = 0; i < numberOfRetries; i++){
+        for (int i = 0; i < numberOfRetries; i++) {
             if (!port.exists()) {
-                if(i == numberOfRetries-1) {
+                if (i == numberOfRetries - 1) {
                     // This is the last
                     Log.e(TAG, "Port does not exist. Could not properly update modem firmware. Restarting rild.");
                     Logger.addLoggingInfo("Port does not exist. Could not properly update modem firmware. Restarting rild.");
@@ -107,7 +105,7 @@ class Port {
                 // Set up the port with the correct flags.
                 mFd = open("/dev/ttyACM0", 9600);
                 if (mFd == null) {
-                    if(i == numberOfRetries-1) {
+                    if (i == numberOfRetries - 1) {
                         Log.e(TAG, "Could not open the port properly for updating modem firmware. Restarting rild.");
                         Logger.addLoggingInfo("Could not open the port properly for updating modem firmware. Restarting rild.");
                         startRild();
@@ -129,7 +127,7 @@ class Port {
                 inputStream = new BufferedInputStream(new FileInputStream(port));
                 outputStream = new BufferedOutputStream(new FileOutputStream(port));
             } catch (Exception e) {
-                if(i == numberOfRetries-1){
+                if (i == numberOfRetries - 1) {
                     Log.e(TAG, e.toString());
                     Logger.addLoggingInfo("Error setting up port: " + e.toString());
                     startRild();
@@ -254,7 +252,7 @@ class Port {
             Callable<Void> readTask = new Callable<Void>() {
                 @Override
                 public Void call() throws Exception {
-                    while (true){
+                    while (true) {
                         int available = inputStream.available();
                         if (available > 0) {
                             long skipped = inputStream.skip(available);
@@ -268,9 +266,9 @@ class Port {
             ExecutorService executor = Executors.newFixedThreadPool(1);
             Future<Void> future = executor.submit(readTask);
             future.get(timeout, TimeUnit.MILLISECONDS);
-        } catch(TimeoutException te){
+        } catch (TimeoutException te) {
             // Callable will timeout.
-        }catch (Exception e) {
+        } catch (Exception e) {
             Log.e(TAG, e.toString());
         }
     }

@@ -1,6 +1,5 @@
 package com.micronet.a317modemupdater;
 
-import android.content.Context;
 import android.util.Log;
 import com.dropbox.core.DbxRequestConfig;
 import com.dropbox.core.NetworkIOException;
@@ -10,9 +9,6 @@ import com.dropbox.core.v2.files.WriteMode;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.Charset;
-import java.text.SimpleDateFormat;
-import java.util.Calendar;
-import java.util.Locale;
 
 /**
  * Used to connect to dropbox and upload logs.
@@ -23,10 +19,8 @@ class DropBox {
     private final String ACCESS_TOKEN = "LPPT11VZzEAAAAAAAAAAU47-w7F3dzDyGLmL0IagOX5HsECjVqkVRUa6Rum2vGam";
     private DbxClientV2 client;
 
-    DropBox(Context context) {
-        // Create Dropbox client
-        DbxRequestConfig config = DbxRequestConfig.newBuilder("A317ModemUpdater/" + BuildConfig.VERSION_NAME).build();
-        client = new DbxClientV2(config, ACCESS_TOKEN);
+    DropBox() {
+        client = new DbxClientV2(DbxRequestConfig.newBuilder("A317ModemUpdater/" + BuildConfig.VERSION_NAME).build(), ACCESS_TOKEN);
     }
 
     boolean uploadLogs(String dt, String id, String data, boolean pass) {
@@ -46,7 +40,7 @@ class DropBox {
         return true;
     }
 
-    boolean preUploadLog(String dt, String id) {
+    boolean uploadStatusBeforeUpdate(String dt, String id) {
         try {
             InputStream in = new ByteArrayInputStream(("About to check modem firmware version.\nIf update is available then modem firmware"
                     + " will try to be updated.").getBytes(Charset.forName("UTF-8")));

@@ -10,7 +10,7 @@ public class RildTest {
 
     @Before
     public void setUp(){
-        Logger.createNew(InstrumentationRegistry.getContext());
+        Logger.prepareLogger(InstrumentationRegistry.getContext());
     }
 
     @Test
