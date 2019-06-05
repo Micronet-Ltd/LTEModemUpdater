@@ -1,5 +1,7 @@
-## a317_LTE_modem_updater
+## LTE Modem Updater for A317 devices
 
-a317 Telit LTE Modem updater android app
+LTE Modem Updater app
 
-Currently can run on A317 devices to update modem firmware versions from 20.00.032 -> 20.00.034 and 20.00.032.0-B041 -> 20.00.034. Should take 5 to 10 minutes to run. Screen will turn green if update completed successfully. Screen will turn red if update did not complete successfully. If update fails, restarting the device and trying again could help. You will need to move the Micronet A317 .keystore and .properties file into the app level folder in order for the application to work properly.
+Currently will run on LTE A317 devices. This application will update devices from 20.00.34 .4, .7, and .10 to the new version for Verizon and from 20.00.552 .4 and .7 to the new version for AT&T. Before trying to update the modem firmware this application will upload logs to Dropbox and after the modem firmware has been updated it will try to upload results to Dropbox.
+
+Note: You will need to move the Micronet A317 .keystore and .properties file into the app level folder in order for the application to build and work properly.
