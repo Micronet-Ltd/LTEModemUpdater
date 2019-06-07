@@ -171,7 +171,7 @@ public class MainActivity extends AppCompatActivity {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                countDownTimer = new CountDownTimer(delaySeconds * 1000, 15000) {
+                countDownTimer = new CountDownTimer(delaySeconds * 1000, 30000) {
                     public void onTick(long millisUntilFinished) {
                         String display = String.format(Locale.getDefault(), "Rebooting the device in %d seconds.",
                                 (int) Math.ceil((float) millisUntilFinished / (float) 1000));
