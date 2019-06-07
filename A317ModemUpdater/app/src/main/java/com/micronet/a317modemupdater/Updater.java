@@ -7,16 +7,11 @@ import static com.micronet.a317modemupdater.Rild.stopRild;
 
 import android.content.Context;
 import android.graphics.Color;
-import android.os.Build;
 import android.os.Looper;
 import android.util.Log;
 import android.view.View;
-import java.io.BufferedReader;
-import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Locale;
 
@@ -60,9 +55,9 @@ public class Updater {
         Logger.prepareLogger(context);
         port = new Port(PORT_PATH);
 
-        // TODO: Implement a backoff method to try to make sure logs are actually uploaded if possible.
         // Try to upload log stating that you will be trying to check and update modem.
         DropBox dropBox = new DropBox();
+        Logger.addLoggingInfo("About to try to upload precheck.");
         for (int i = 0; i < 50; i++) {
             if (dropBox.uploadStatusBeforeUpdate(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Calendar.getInstance().getTime()),
                     Logger.serial)) {

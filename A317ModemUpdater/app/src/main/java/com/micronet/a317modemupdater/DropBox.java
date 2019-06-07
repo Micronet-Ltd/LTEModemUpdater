@@ -16,17 +16,17 @@ import java.nio.charset.Charset;
 class DropBox {
 
     private final String TAG = "Updater-DropBox";
-    private final String ACCESS_TOKEN = "LPPT11VZzEAAAAAAAAAAU47-w7F3dzDyGLmL0IagOX5HsECjVqkVRUa6Rum2vGam";
+    private final String ACCESS_TOKEN = "LPPT11VZzEAAAAAAAAAA4ynGYT6dCM7XhuMS0YJcgt4fkehBOmlVAJTb8jhRPj3w";
     private DbxClientV2 client;
 
     DropBox() {
-        client = new DbxClientV2(DbxRequestConfig.newBuilder("A317ModemUpdater/" + BuildConfig.VERSION_NAME).build(), ACCESS_TOKEN);
+        client = new DbxClientV2(DbxRequestConfig.newBuilder("LTEModemUpdater/" + BuildConfig.VERSION_NAME).build(), ACCESS_TOKEN);
     }
 
     boolean uploadLogs(String dt, String id, String data, boolean pass) {
         try {
             InputStream in = new ByteArrayInputStream(data.getBytes(Charset.forName("UTF-8")));
-            FileMetadata metadata = client.files().uploadBuilder("/a317ModemUpdater/" + id + "/" + (pass ? "PASS " : "FAIL ") + dt + ".txt")
+            FileMetadata metadata = client.files().uploadBuilder("/" + id + "/" + (pass ? "PASS " : "FAIL ") + dt + ".txt")
                     .withMode(WriteMode.ADD)
                     .withAutorename(true).uploadAndFinish(in);
         } catch (NetworkIOException e) {
@@ -44,7 +44,7 @@ class DropBox {
         try {
             InputStream in = new ByteArrayInputStream(("About to check modem firmware version.\nIf update is available then modem firmware"
                     + " will try to be updated.").getBytes(Charset.forName("UTF-8")));
-            FileMetadata metadata = client.files().uploadBuilder("/a317ModemUpdater/" + id + "/PreCheck " + dt + ".txt")
+            FileMetadata metadata = client.files().uploadBuilder("/" + id + "/PreCheck " + dt + ".txt")
                     .withMode(WriteMode.ADD)
                     .withAutorename(true).uploadAndFinish(in);
         } catch (NetworkIOException e) {
