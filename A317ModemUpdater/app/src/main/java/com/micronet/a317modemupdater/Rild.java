@@ -28,7 +28,6 @@ class Rild {
 
                 if (output.toLowerCase().contains("[init.svc.ril-daemon]: [running]")) {
                     Log.i(TAG, "Rild started");
-                    Logger.addLoggingInfo("Rild started");
                     return true;
                 } else {
                     Log.d(TAG, "Rild not started correctly, trying again.");
@@ -40,13 +39,11 @@ class Rild {
                 }
             } catch (IOException e) {
                 Log.e(TAG, "Error rild not started correctly" + e.toString());
-                Logger.addLoggingInfo("Error starting rild: " + e.toString());
                 return false;
             }
         }
 
         Log.e(TAG, "Error rild not started correctly.");
-        Logger.addLoggingInfo("Error starting rild.");
         return false;
     }
 
@@ -66,7 +63,6 @@ class Rild {
 
                 if (output.toLowerCase().contains("[init.svc.ril-daemon]: [stopped]")) {
                     Log.i(TAG, "Rild stopped");
-                    Logger.addLoggingInfo("Rild stopped");
                     return true;
                 } else {
                     Log.d(TAG, "Rild not stopped correctly, trying again.");
@@ -78,14 +74,12 @@ class Rild {
                 }
             } catch (IOException e) {
                 Log.e(TAG, "Error rild not stopped correctly" + e.toString());
-                Logger.addLoggingInfo("Error stopping rild: " + e.toString());
                 startRild();
                 return false;
             }
         }
 
         Log.e(TAG, "Error rild not stopped correctly");
-        Logger.addLoggingInfo("Error stopping rild");
         startRild();
         return false;
     }

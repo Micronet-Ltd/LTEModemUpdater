@@ -57,11 +57,9 @@ class Port {
         } catch (Exception e) {
             Log.e(TAG, e.toString());
 
-            Logger.addLoggingInfo("Error opening port: " + e.toString());
             return false;
         }
 
-        Logger.addLoggingInfo("Port opened successfully");
         return true;
     }
 
@@ -72,9 +70,7 @@ class Port {
             outputStream.close();
         } catch (Exception e) {
             Log.e(TAG, e.toString());
-            Logger.addLoggingInfo("Error closing port: " + e.toString());
         }
-        Logger.addLoggingInfo("Port closed successfully");
     }
 
     boolean setupPort() {
@@ -85,7 +81,6 @@ class Port {
                 if (i == numberOfRetries - 1) {
                     // This is the last
                     Log.e(TAG, "Port does not exist. Could not properly update modem firmware. Restarting rild.");
-                    Logger.addLoggingInfo("Port does not exist. Could not properly update modem firmware. Restarting rild.");
 
                     startRild();
                     return false;
@@ -107,7 +102,6 @@ class Port {
                 if (mFd == null) {
                     if (i == numberOfRetries - 1) {
                         Log.e(TAG, "Could not open the port properly for updating modem firmware. Restarting rild.");
-                        Logger.addLoggingInfo("Could not open the port properly for updating modem firmware. Restarting rild.");
                         startRild();
                         return false;
                     }
@@ -129,7 +123,6 @@ class Port {
             } catch (Exception e) {
                 if (i == numberOfRetries - 1) {
                     Log.e(TAG, e.toString());
-                    Logger.addLoggingInfo("Error setting up port: " + e.toString());
                     startRild();
                     return false;
                 }
@@ -147,7 +140,6 @@ class Port {
             break;
         }
 
-        Logger.addLoggingInfo("Successfully setup port");
         return true;
     }
 
@@ -175,7 +167,7 @@ class Port {
     String getModemType() {
         // Try 10 times to get the correct modem type
         for (int i = 0; i < 10; i++) {
-            String modemType = writeRead("AT+CGMM\r").replace("\n", "").replace("OK", "");
+            String modemType = writeRead("AT+CGMM\r").replace("\n", "").replace("OK", "").replace("AT+CGMM","");
 
             // Modem type must match something like LE910-NA1
             if (modemType.matches("\\w+-\\w+")) {
@@ -241,7 +233,6 @@ class Port {
             outputStream.flush();
 
             Log.d(TAG, "Sent: " + stringToWrite + ". Sent Bytes: " + Arrays.toString(stringToWrite.getBytes()));
-            Logger.addLoggingInfo("WRITE - " + stringToWrite);
         } catch (Exception e) {
             Log.e(TAG, e.toString());
         }
@@ -304,7 +295,6 @@ class Port {
                 String readString = new String(readChars);
 
                 Log.d(TAG, "Received: " + readString + ". Received Bytes: " + Arrays.toString(onlyReadBytes));
-                Logger.addLoggingInfo("READ - " + readString);
                 return readString;
             }
 
@@ -379,7 +369,6 @@ class Port {
             return sb.toString();
         }
 
-        Logger.addLoggingInfo("READ - " + sb.toString());
 
         return sb.toString();
     }

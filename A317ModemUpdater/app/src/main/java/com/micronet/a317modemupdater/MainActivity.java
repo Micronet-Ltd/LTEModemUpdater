@@ -1,12 +1,9 @@
 package com.micronet.a317modemupdater;
 
 import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.graphics.Color;
-import android.net.ConnectivityManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.CountDownTimer;
@@ -19,13 +16,11 @@ import android.widget.Button;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
-import com.micronet.a317modemupdater.receiver.NetworkStateReceiver;
 import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "Updater-Main";
-    private static final String UPDATE_SUCCESSFUL_ACTION = "com.micronet.dsc.resetrb.modemupdater.UPDATE_SUCCESSFUL_ACTION";
     private static CountDownTimer countDownTimer;
     static final String UPDATED_KEY = "Updated";
     static final String UPLOADED_KEY = "Uploaded";
@@ -40,89 +35,29 @@ public class MainActivity extends AppCompatActivity {
     private ProgressBar progressBar;
     private ConstraintLayout mainLayout;
     private Updater updater;
-    private NetworkStateReceiver networkStateReceiver;
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // First check to see if device is already updated and uploaded.
-        boolean updated = isUpdated();
-        boolean uploaded = isUploaded();
 
-        // We check three cases:
-        //  - If the modem is updated and logs are uploaded then don't start the application and send broadcast of a successful update.
-        //  - If the modem is updated but the logs aren't uploaded then keep trying to upload the logs.
-        //  - Else upload precheck log to Dropbox, check the modem firmware version, and update if needed.
-        if (updated && uploaded) {
-            // Don't start the application and display toast.
-            String modemResult = "Modem firmware already updated and uploaded. Activity not starting.";
-            Toast.makeText(context, modemResult, Toast.LENGTH_LONG).show();
-            Log.i(TAG, modemResult);
+        // Check modem firmware and update if needed.
+        String modemStatus = "Modem firmware hasn't been updated yet.";
+        Log.i(TAG, modemStatus);
+        Toast.makeText(context, modemStatus, Toast.LENGTH_LONG).show();
 
-            // Resend broadcast to ResetRB to begin clean up. ResetRB will clear Communitake data and uninstall this application.
-            Intent successfulUpdateIntent = new Intent(UPDATE_SUCCESSFUL_ACTION);
-            sendBroadcast(successfulUpdateIntent);
-            finish();
-        } else if (updated) {
-            // Only work on uploading logs
-            String logStatus = "Modem firmware already updated but logs not uploaded.";
-            Toast.makeText(context, logStatus, Toast.LENGTH_LONG).show();
-            Log.i(TAG, logStatus);
+        // Setup UI.
+        setContentView(R.layout.activity_main);
+        setUpUi();
+        tvInfo.setText("Preparing to check modem version...");
 
-            // Set up UI to inform user that logs are trying to be uploaded.
-            setContentView(R.layout.activity_main);
-            setUpUi();
-            tvInfo.setText("Modem Firmware already updated. Trying to upload logs if any.");
-
-            // Start process of uploading logs from database.
-            Logger.prepareLogger(context);
-            Logger.uploadSavedLogs(context);
-        } else {
-            // Check modem firmware and update if needed.
-            String modemStatus = "Modem firmware hasn't been updated yet.";
-            Log.i(TAG, modemStatus);
-            Toast.makeText(context, modemStatus, Toast.LENGTH_LONG).show();
-
-            // Setup UI.
-            setContentView(R.layout.activity_main);
-            setUpUi();
-            tvInfo.setText("Preparing to check modem version...");
-
-            updater = new Updater(this);
-            updater.startUpdateProcess();
-        }
+        updater = new Updater(this);
+        updater.startUpdateProcess();
     }
 
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
         Log.d(TAG, "App kept alive during configuration change.");
-    }
-
-    @Override
-    protected void onStart() {
-        super.onStart();
-
-        networkStateReceiver = new NetworkStateReceiver();
-        this.registerReceiver(networkStateReceiver, new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION));
-    }
-
-    @Override
-    protected void onStop() {
-        super.onStop();
-
-        this.unregisterReceiver(networkStateReceiver);
-        networkStateReceiver = null;
-    }
-
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        if (Logger.db != null && Logger.db.isOpen()) {
-            Log.d(TAG, "Closing modem upgrader log database");
-            Logger.db.close();
-        }
     }
 
     private void setUpUi() {
