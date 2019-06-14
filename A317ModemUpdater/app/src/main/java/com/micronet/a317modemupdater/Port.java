@@ -175,7 +175,7 @@ class Port {
     String getModemType() {
         // Try 10 times to get the correct modem type
         for (int i = 0; i < 10; i++) {
-            String modemType = writeRead("AT+CGMM\r").replace("\n", "").replace("OK", "");
+            String modemType = writeRead("AT+CGMM\r").replace("\n", "").replace("OK", "").replace("AT+CGMM","");
 
             // Modem type must match something like LE910-NA1
             if (modemType.matches("\\w+-\\w+")) {

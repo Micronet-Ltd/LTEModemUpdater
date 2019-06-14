@@ -13,13 +13,18 @@ import android.os.CountDownTimer;
 import android.os.PowerManager;
 import android.support.constraint.ConstraintLayout;
 import android.support.v7.app.AppCompatActivity;
+import android.telephony.TelephonyManager;
 import android.util.Log;
 import android.view.View;
+import android.view.View.OnClickListener;
 import android.widget.Button;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 import com.micronet.a317modemupdater.receiver.NetworkStateReceiver;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
@@ -82,7 +87,6 @@ public class MainActivity extends AppCompatActivity {
             // Check modem firmware and update if needed.
             String modemStatus = "Modem firmware hasn't been updated yet.";
             Log.i(TAG, modemStatus);
-            Toast.makeText(context, modemStatus, Toast.LENGTH_LONG).show();
 
             // Setup UI.
             setContentView(R.layout.activity_main);
@@ -149,6 +153,35 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
+
+        // Display Serial and IMEI
+        String serial = Build.SERIAL;
+        String imei = "unknown";
+
+        TelephonyManager telephonyManager = (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
+        try {
+            if (telephonyManager.getDeviceId() != null) {
+                imei = telephonyManager.getDeviceId();
+            }
+        } catch (SecurityException e) {
+            Log.e(TAG, e.toString());
+        }
+
+        ((TextView)findViewById(R.id.tvSerial)).setText("Serial: " + serial);
+        ((TextView)findViewById(R.id.tvImei)).setText("IMEI: " + imei);
+
+        ((Button)findViewById(R.id.btnRedbendCheckIn)).setOnClickListener(new OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                try {
+                    runShellCommand(new String[]{"am", "broadcast", "-a", "SwmClient.CHECK_FOR_UPDATES_NOW"});
+                    Toast.makeText(context, "Sent intent to check in on Redbend.", Toast.LENGTH_LONG).show();
+                } catch (IOException e) {
+                    Log.e("CheckForUpdates", e.toString());
+                    Toast.makeText(context, "Error sending intent to check in on Redbend.", Toast.LENGTH_LONG).show();
+                }
+            }
+        });
     }
 
     // **************************************************************************************
@@ -156,6 +189,20 @@ public class MainActivity extends AppCompatActivity {
     // *********************************** Helper Methods ***********************************
     // **************************************************************************************
     // **************************************************************************************
+
+    private static String runShellCommand(String[] commands) throws IOException {
+        StringBuilder sb = new StringBuilder();
+
+        BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(Runtime.getRuntime().exec(commands).getInputStream()));
+        String line;
+        while ((line = bufferedReader.readLine()) != null) {
+            sb.append(line);
+        }
+
+        bufferedReader.close();
+
+        return sb.toString();
+    }
 
     boolean isUpdated() {
         SharedPreferences sharedPreferences = this.getSharedPreferences(SHARED_PREF_KEY, Context.MODE_PRIVATE);
