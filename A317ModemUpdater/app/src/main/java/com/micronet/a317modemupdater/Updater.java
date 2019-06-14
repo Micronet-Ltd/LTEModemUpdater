@@ -495,13 +495,13 @@ public class Updater {
             final String updatedSoftwareVersion = port.writeRead("AT+CGMR\r");
             final String updatedExtendedSoftwareVersion = port.writeRead("AT#CFVR\r");
 
-            // 20.00.034 .4, .6, and .10 should go to 20.00.034.11
-            // 20.00.522 .4 and .7 should go to 20.00.522.9
+            // 20.00.034 .4, .6, and .10 should go to 20.10.034.0
+            // 20.00.522 .4 and .7 should go to 20.10.522.0
             if (updateFileType == V20_00_034_4 || updateFileType == V20_00_034_6 || updateFileType == V20_00_034_10) {
                 if (updatedSoftwareVersion.contains("20.10.034") && updatedExtendedSoftwareVersion
                         .contains("#CFVR: 0")) { // Modem updated successfully
                     pass = true;
-                    context.updateTvModemVersion(formatModemVersion(updatedSoftwareVersion, updatedExtendedSoftwareVersion));
+                    context.updateTvModemVersion("Modem Version: " + formatModemVersion(updatedSoftwareVersion, updatedExtendedSoftwareVersion));
 
                     port.closePort();
                     Log.d(TAG, "Loop: " + i + ", Str is: " + updatedSoftwareVersion);
@@ -512,7 +512,7 @@ public class Updater {
                 if (updatedSoftwareVersion.contains("20.10.522") && updatedExtendedSoftwareVersion
                         .contains("#CFVR: 0")) { // Modem updated successfully
                     pass = true;
-                    context.updateTvModemVersion(formatModemVersion(updatedSoftwareVersion, updatedExtendedSoftwareVersion));
+                    context.updateTvModemVersion("Modem Version: " + formatModemVersion(updatedSoftwareVersion, updatedExtendedSoftwareVersion));
 
                     port.closePort();
                     Log.d(TAG, "Loop: " + i + ", Str is: " + updatedSoftwareVersion);
@@ -531,11 +531,11 @@ public class Updater {
         // Handle whether the update succeeded or failed
         if (pass) {
             if (updateFileType == V20_00_034_4 || updateFileType == V20_00_034_6 || updateFileType == V20_00_034_10) {
-                context.updateTvInfo("SUCCESS: Device modem updated successfully to 20.00.034.11.");
-                Logger.addLoggingInfo("SUCCESS: Device modem updated successfully to 20.00.034.11.");
+                context.updateTvInfo("SUCCESS: Device modem updated successfully to 20.10.034.0.");
+                Logger.addLoggingInfo("SUCCESS: Device modem updated successfully to 20.10.034.0.");
             } else if (updateFileType == V20_00_522_4 || updateFileType == V20_00_522_7) {
-                context.updateTvInfo("SUCCESS: Device modem updated successfully to 20.00.522.9.");
-                Logger.addLoggingInfo("SUCCESS: Device modem updated successfully to 20.00.522.9.");
+                context.updateTvInfo("SUCCESS: Device modem updated successfully to 20.10.522.0.");
+                Logger.addLoggingInfo("SUCCESS: Device modem updated successfully to 20.10.522.0.");
             }
 
             context.updateBackgroundColor(Color.GREEN);
@@ -601,11 +601,12 @@ public class Updater {
         // Sleeping at least 5 seconds from last AT command sent because of recommendation in docs.
         sleep(5000);
 
-        // Sent command to reboot modem
+        // Send command to reboot modem
+        context.updateTvInfo("Trying to reboot modem to try again.");
         port.writeRead("AT#ENHRST=1,0\r");
 
         // Sleep a certain amount of time to wait for modem to restart
-        sleep(15000);
+        sleep(30000);
     }
 
     private void sleep(int ms) {
