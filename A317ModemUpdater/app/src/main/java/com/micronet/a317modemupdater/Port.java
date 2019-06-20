@@ -1,6 +1,6 @@
 package com.micronet.a317modemupdater;
 
-import static com.micronet.a317modemupdater.Rild.startRild;
+import static com.micronet.a317modemupdater.Rild.configureRild;
 
 import android.support.annotation.Keep;
 import android.util.Log;
@@ -33,6 +33,8 @@ class Port {
 
     private byte[] readBytes;
     private char[] readChars;
+
+    private final int NUM_PORT_SETUP_RETRIES = 10;
 
     static {
         System.loadLibrary("port");
@@ -67,9 +69,14 @@ class Port {
 
     void closePort() {
         try {
-            // Create streams to and from the port
-            inputStream.close();
-            outputStream.close();
+            // Try to close the input/output streams if they aren't null.
+            if (inputStream != null) {
+                inputStream.close();
+            }
+
+            if (outputStream != null) {
+                outputStream.close();
+            }
         } catch (Exception e) {
             Log.e(TAG, e.toString());
             Logger.addLoggingInfo("Error closing port: " + e.toString());
@@ -78,97 +85,30 @@ class Port {
     }
 
     boolean setupPort() {
-        int numberOfRetries = 10;
-
-        for (int i = 0; i < numberOfRetries; i++) {
-            if (!port.exists()) {
-                if (i == numberOfRetries - 1) {
-                    // This is the last
-                    Log.e(TAG, "Port does not exist. Could not properly update modem firmware. Restarting rild.");
-                    Logger.addLoggingInfo("Port does not exist. Could not properly update modem firmware. Restarting rild.");
-
-                    startRild();
-                    return false;
+        for (int i = 0; i < NUM_PORT_SETUP_RETRIES; i++) {
+            if (port.exists()) {
+                // Set up the port with the correct flags.
+                mFd =open("/dev/ttyACM0", 9600);
+                if (mFd != null) {
+                    close();
+                    if (openPort()) {
+                        Logger.addLoggingInfo("Successfully setup port");
+                        return true;
+                    }
                 }
-
-                // Sleep and try again to see if ports enumerate
-                try {
-                    Thread.sleep(200);
-                } catch (InterruptedException e) {
-                    Log.e(TAG, e.toString());
-                }
-
-                continue;
             }
 
             try {
-                // Set up the port with the correct flags.
-                mFd = open("/dev/ttyACM0", 9600);
-                if (mFd == null) {
-                    if (i == numberOfRetries - 1) {
-                        Log.e(TAG, "Could not open the port properly for updating modem firmware. Restarting rild.");
-                        Logger.addLoggingInfo("Could not open the port properly for updating modem firmware. Restarting rild.");
-                        startRild();
-                        return false;
-                    }
-
-                    // Sleep and try again to see if ports enumerate
-                    try {
-                        Thread.sleep(200);
-                    } catch (InterruptedException e) {
-                        Log.e(TAG, e.toString());
-                    }
-
-                    continue;
-                }
-                close();
-
-                // Create streams to and from the port
-                inputStream = new BufferedInputStream(new FileInputStream(port));
-                outputStream = new BufferedOutputStream(new FileOutputStream(port));
-            } catch (Exception e) {
-                if (i == numberOfRetries - 1) {
-                    Log.e(TAG, e.toString());
-                    Logger.addLoggingInfo("Error setting up port: " + e.toString());
-                    startRild();
-                    return false;
-                }
-
-                try {
-                    Thread.sleep(200);
-                } catch (InterruptedException ie) {
-                    Log.e(TAG, ie.toString());
-                }
-
-                continue;
-            }
-
-            // Successful setup of the port
-            break;
-        }
-
-        Logger.addLoggingInfo("Successfully setup port");
-        return true;
-    }
-
-    /**
-     * Test the connection with the modem.
-     *
-     * @return whether a connection was made with the modem
-     */
-    boolean testConnection() {
-        // Try up to 10 times to test connection
-        for (int i = 0; i < 10; i++) {
-            String output = writeRead("AT\r");
-
-            // Output must contain "OK"
-            if (output.contains("OK")) {
-                Log.d(TAG, "Able to communicate with modem.");
-                return true;
+                Thread.sleep(200);
+            } catch (InterruptedException e) {
+                Log.e(TAG, e.toString());
             }
         }
 
-        Log.e(TAG, "Error: unable to communicate with modem.");
+        String errorString = "Error setting up port for updating modem firmware. Restarting Rild.";
+        Log.e(TAG, errorString);
+        Logger.addLoggingInfo(errorString);
+        configureRild(true);
         return false;
     }
 
@@ -237,11 +177,13 @@ class Port {
         try {
             skipAvailable(500);
 
-            outputStream.write(stringToWrite.getBytes());
-            outputStream.flush();
+            if (outputStream != null) {
+                outputStream.write(stringToWrite.getBytes());
+                outputStream.flush();
 
-            Log.d(TAG, "Sent: " + stringToWrite + ". Sent Bytes: " + Arrays.toString(stringToWrite.getBytes()));
-            Logger.addLoggingInfo("WRITE - " + stringToWrite);
+                Log.d(TAG, "Sent: " + stringToWrite + ". Sent Bytes: " + Arrays.toString(stringToWrite.getBytes()));
+                Logger.addLoggingInfo("WRITE - " + stringToWrite);
+            }
         } catch (Exception e) {
             Log.e(TAG, e.toString());
         }
@@ -294,16 +236,14 @@ class Port {
                 return "";
             } else {
                 readChars = new char[numBytesRead];
-                byte[] onlyReadBytes = new byte[numBytesRead];
 
                 for (int i = 0; i < numBytesRead; i++) {
                     readChars[i] = (char) readBytes[i];
-                    onlyReadBytes[i] = readBytes[i];
                 }
 
                 String readString = new String(readChars);
 
-                Log.d(TAG, "Received: " + readString + ". Received Bytes: " + Arrays.toString(onlyReadBytes));
+                Log.d(TAG, "Received: " + readString);
                 Logger.addLoggingInfo("READ - " + readString);
                 return readString;
             }
@@ -319,8 +259,6 @@ class Port {
     }
 
     private String readFromPortExtended(final String str) {
-        readBytes = new byte[4096];
-
         final StringBuilder sb = new StringBuilder();
 
         try {

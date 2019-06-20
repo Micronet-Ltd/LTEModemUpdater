@@ -1,9 +1,14 @@
 package com.micronet.a317modemupdater;
 
+import static com.micronet.a317modemupdater.Utils.getImei;
+import static com.micronet.a317modemupdater.Utils.getSerial;
+import static com.micronet.a317modemupdater.Utils.isUpdated;
+import static com.micronet.a317modemupdater.Utils.isUploaded;
+import static com.micronet.a317modemupdater.Utils.runShellCommand;
+
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.graphics.Color;
 import android.net.ConnectivityManager;
@@ -13,7 +18,6 @@ import android.os.CountDownTimer;
 import android.os.PowerManager;
 import android.support.constraint.ConstraintLayout;
 import android.support.v7.app.AppCompatActivity;
-import android.telephony.TelephonyManager;
 import android.util.Log;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -22,9 +26,7 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 import com.micronet.a317modemupdater.receiver.NetworkStateReceiver;
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
@@ -32,9 +34,6 @@ public class MainActivity extends AppCompatActivity {
     private static final String TAG = "Updater-Main";
     private static final String UPDATE_SUCCESSFUL_ACTION = "com.micronet.dsc.resetrb.modemupdater.UPDATE_SUCCESSFUL_ACTION";
     private static CountDownTimer countDownTimer;
-    static final String UPDATED_KEY = "Updated";
-    static final String UPLOADED_KEY = "Uploaded";
-    static final String SHARED_PREF_KEY = "LTEModemUpdater";
     private final Context context = this;
 
     private TextView tvInfo;
@@ -52,8 +51,8 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
 
         // First check to see if device is already updated and uploaded.
-        boolean updated = isUpdated();
-        boolean uploaded = isUploaded();
+        boolean updated = isUpdated(this);
+        boolean uploaded = isUploaded(this);
 
         // We check three cases:
         //  - If the modem is updated and logs are uploaded then don't start the application and send broadcast of a successful update.
@@ -154,23 +153,10 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        // Display Serial and IMEI
-        String serial = Build.SERIAL;
-        String imei = "unknown";
+        ((TextView)findViewById(R.id.tvSerial)).setText("Serial: " + getSerial());
+        ((TextView)findViewById(R.id.tvImei)).setText("IMEI: " + getImei(context));
 
-        TelephonyManager telephonyManager = (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
-        try {
-            if (telephonyManager.getDeviceId() != null) {
-                imei = telephonyManager.getDeviceId();
-            }
-        } catch (SecurityException e) {
-            Log.e(TAG, e.toString());
-        }
-
-        ((TextView)findViewById(R.id.tvSerial)).setText("Serial: " + serial);
-        ((TextView)findViewById(R.id.tvImei)).setText("IMEI: " + imei);
-
-        ((Button)findViewById(R.id.btnRedbendCheckIn)).setOnClickListener(new OnClickListener() {
+        findViewById(R.id.btnRedbendCheckIn).setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View v) {
                 try {
@@ -189,30 +175,6 @@ public class MainActivity extends AppCompatActivity {
     // *********************************** Helper Methods ***********************************
     // **************************************************************************************
     // **************************************************************************************
-
-    private static String runShellCommand(String[] commands) throws IOException {
-        StringBuilder sb = new StringBuilder();
-
-        BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(Runtime.getRuntime().exec(commands).getInputStream()));
-        String line;
-        while ((line = bufferedReader.readLine()) != null) {
-            sb.append(line);
-        }
-
-        bufferedReader.close();
-
-        return sb.toString();
-    }
-
-    boolean isUpdated() {
-        SharedPreferences sharedPreferences = this.getSharedPreferences(SHARED_PREF_KEY, Context.MODE_PRIVATE);
-        return sharedPreferences.getBoolean(UPDATED_KEY, false);
-    }
-
-    boolean isUploaded() {
-        SharedPreferences sharedPreferences = this.getSharedPreferences(SHARED_PREF_KEY, Context.MODE_PRIVATE);
-        return sharedPreferences.getBoolean(UPLOADED_KEY, false);
-    }
 
     void delayedShutdown(final int delaySeconds) {
         runOnUiThread(new Runnable() {

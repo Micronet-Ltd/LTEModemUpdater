@@ -7,40 +7,45 @@ import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.util.Log;
 import com.micronet.a317modemupdater.Logger;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class NetworkStateReceiver extends BroadcastReceiver {
 
     private static final String TAG = "NetworkStateReceiver";
+    private static AtomicBoolean connected = new AtomicBoolean(false);
 
     @Override
     public void onReceive(final Context context, Intent intent) {
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                Log.d(TAG, "Received connectivity change intent");
-                if(Logger.isPrepared) {
-                    if(hasInternetConnection(context)) {
-                        Log.d(TAG, "Connected");
-                        Logger.uploadSavedLogs(context);
-                    } else {
-                        Log.d(TAG, "Not Connected");
-                    }
-                }
-            }
-        }).start();
-    }
+        boolean dataConnection = hasInternetConnection(context);
 
-    private void handleReconnect(Context context) {
-//        Toast.makeText(context, "Uploading logs", Toast.LENGTH_LONG).show();
-        Logger.uploadSavedLogs(context);
+        // Do we have a connection now.
+        if (!connected.get() && dataConnection) {
+            connected.set(true);
+
+            if(Logger.isPrepared.get()) {
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Logger.uploadSavedLogs(context);
+                        Log.d(TAG, "Connected to the internet and trying to upload saved logs.");
+                    }
+                }).start();
+            }
+        } else if (connected.get() && !dataConnection) { // Did we lose our connection.
+            connected.set(false);
+        }
     }
 
     private boolean hasInternetConnection(Context context) {
         ConnectivityManager connectivityManager = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
         if(connectivityManager != null){
             NetworkInfo networkInfo = connectivityManager.getActiveNetworkInfo();
+            if (networkInfo != null) {
+                // Make sure you also have a data connection to the internet.
+                if (!networkInfo.isConnected()) {
+                    return false;
+                }
 
-            if (networkInfo != null) { // connected to the internet
                 return networkInfo.getType() == ConnectivityManager.TYPE_WIFI || networkInfo.getType() == ConnectivityManager.TYPE_MOBILE;
             }
         }

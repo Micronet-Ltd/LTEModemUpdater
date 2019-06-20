@@ -1,9 +1,10 @@
 package com.micronet.a317modemupdater;
 
-import static com.micronet.a317modemupdater.MainActivity.SHARED_PREF_KEY;
-import static com.micronet.a317modemupdater.MainActivity.UPDATED_KEY;
-import static com.micronet.a317modemupdater.Rild.startRild;
-import static com.micronet.a317modemupdater.Rild.stopRild;
+import static com.micronet.a317modemupdater.DropBox.uploadPreCheck;
+import static com.micronet.a317modemupdater.Rild.configureRild;
+import static com.micronet.a317modemupdater.Utils.UPDATED_KEY;
+import static com.micronet.a317modemupdater.Utils.getCurrentDatetime;
+import static com.micronet.a317modemupdater.Utils.setUpdated;
 
 import android.content.Context;
 import android.graphics.Color;
@@ -11,9 +12,6 @@ import android.os.Looper;
 import android.util.Log;
 import android.view.View;
 import java.io.InputStream;
-import java.text.SimpleDateFormat;
-import java.util.Calendar;
-import java.util.Locale;
 
 public class Updater {
     private static final String TAG = "Updater-Main";
@@ -28,6 +26,16 @@ public class Updater {
     private final int V20_00_522_7 = 12;
     private final int V20_10_522_0 = 13;
     private final int REBOOT_DELAY = 600;
+
+    private final String V20_00_034_4_STR = "20.00.034.4";
+    private final String V20_00_034_6_STR = "20.00.034.6";
+    private final String V20_00_034_10_STR = "20.00.034.10";
+    private final String V20_10_034_0_STR = "20.10.034.0";
+    private final String V20_00_522_4_STR = "20.00.522.4";
+    private final String V20_00_522_7_STR = "20.00.522.7";
+    private final String V20_10_522_0_STR = "20.10.522.0";
+    private final String ATT_MODEM = "LE910-NA1";
+    private final String VERIZON_MODEM = "LE910-SVL";
 
     private Port port;
     private byte[] updateFileBytes;
@@ -56,11 +64,9 @@ public class Updater {
         port = new Port(PORT_PATH);
 
         // Try to upload log stating that you will be trying to check and update modem.
-        DropBox dropBox = new DropBox();
         Logger.addLoggingInfo("About to try to upload precheck.");
         for (int i = 0; i < 50; i++) {
-            if (dropBox.uploadStatusBeforeUpdate(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Calendar.getInstance().getTime()),
-                    Logger.serial)) {
+            if (uploadPreCheck(getCurrentDatetime())) {
                 Log.i(TAG, "Uploaded precheck log to dropbox.");
                 break;
             } else {
@@ -79,7 +85,7 @@ public class Updater {
      */
     private void setupPortAndModemCommunication() {
         // Try to stop rild to communicate with the modem, if it fails then reboot.
-        if (!stopRild()) {
+        if (!configureRild(false)) {
             // Log errors and update UI
             String err = "Error killing rild. Could not properly update modem firmware. Reboot device and try again.";
             context.updateTvInfo(err);
@@ -115,17 +121,18 @@ public class Updater {
         }
 
         // Try to communicate with modem, if it fails then reboot.
-        if (port.testConnection()) {
+        String modemType = port.getModemType();
+        if (!modemType.equals("UNKNOWN")) {
             Logger.addLoggingInfo("Able to communicate with modem.");
             // If you are able to communicate with the modem then check if this version can be updated.
-            checkFirmwareVersion();
+            checkFirmwareVersion(modemType);
         } else {
             // Log errors and update UI
             context.updateTvInfo("Error communicating with the modem. Cannot update modem.\nRestart and try again. Restarting rild.");
             context.updateBackgroundColor(Color.YELLOW);
             Logger.addLoggingInfo("Error communicating with the modem. Cannot update modem.");
             context.updateTvWarning("Firmware not updated successfully.");
-            startRild();
+            configureRild(true);
 
             // Upload logs and begin reboot process
             Logger.uploadLogs(context, false, "FAIL\nCouldn't communicate with modem.\n\n");
@@ -136,9 +143,8 @@ public class Updater {
         }
     }
 
-    private void checkFirmwareVersion() {
+    private void checkFirmwareVersion(String modemType) {
         // Get modem type and version
-        String modemType = port.getModemType();
         String modemFirmwareVersion = port.getModemVersion();
         String modemTypeDisplay = "Modem Type: " + modemType;
         String modemVersionDisplay = "Modem Version: " + modemFirmwareVersion;
@@ -155,24 +161,22 @@ public class Updater {
 
     private void checkIfUpdatesAreAvailable(String modemType, String modemFirmwareVersion) {
         switch (modemType) {
-            case "LE910-SVL":
+            case VERIZON_MODEM:
                 switch (modemFirmwareVersion) {
-                    case "20.10.034.0":
+                    case V20_10_034_0_STR:
                         String info = "Device has 20.10.034.0. Already updated.";
                         context.updateTvInfo(info);
                         context.updateBackgroundColor(Color.GREEN);
                         Logger.addLoggingInfo(info);
-                        startRild();
+                        configureRild(true);
 
-                        // Set boolean to updated
-                        context.getSharedPreferences(SHARED_PREF_KEY, Context.MODE_PRIVATE).edit()
-                                .putBoolean(UPDATED_KEY, true).apply();
+                        setUpdated(context, true);
 
                         // Upload results.
                         updateFileType = V20_10_034_0;
                         Logger.uploadLogs(context, true, "PASS\nModem already updated to 20.10.034.0.\n\n");
                         break;
-                    case "20.00.034.10":
+                    case V20_00_034_10_STR:
                         info = "Device has 20.00.034.10. Trying to update.";
                         context.updateTvInfo(info);
                         Logger.addLoggingInfo(info);
@@ -181,7 +185,7 @@ public class Updater {
                         updateFileType = V20_00_034_10;
                         updateModem();
                         break;
-                    case "20.00.034.6":
+                    case V20_00_034_6_STR:
                         info = "Device has 20.00.034.6. Trying to update.";
                         context.updateTvInfo(info);
                         Logger.addLoggingInfo(info);
@@ -190,7 +194,7 @@ public class Updater {
                         updateFileType = V20_00_034_6;
                         updateModem();
                         break;
-                    case "20.00.034.4":
+                    case V20_00_034_4_STR:
                         info = "Device has 20.00.034.4. Trying to update.";
                         context.updateTvInfo(info);
                         Logger.addLoggingInfo(info);
@@ -205,7 +209,7 @@ public class Updater {
                         context.updateBackgroundColor(Color.RED);
                         Logger.addLoggingInfo(info);
                         context.updateTvWarning("Firmware not updated successfully.");
-                        startRild();
+                        configureRild(true);
 
                         Logger.uploadLogs(context, false, "FAIL\nNo update file for this modem version.\n\n");
 
@@ -214,24 +218,22 @@ public class Updater {
                         break;
                 }
                 break;
-            case "LE910-NA1":
+            case ATT_MODEM:
                 switch (modemFirmwareVersion) {
-                    case "20.10.522.0":
+                    case V20_10_522_0_STR:
                         String info = "Device has 20.10.522.0. Already updated.";
                         context.updateTvInfo(info);
                         context.updateBackgroundColor(Color.GREEN);
                         Logger.addLoggingInfo(info);
-                        startRild();
+                        configureRild(true);
 
-                        // Set boolean to updated
-                        context.getSharedPreferences(SHARED_PREF_KEY, Context.MODE_PRIVATE).edit()
-                                .putBoolean(UPDATED_KEY, true).apply();
+                        setUpdated(context, true);
 
                         // Upload results
                         updateFileType = V20_10_522_0;
                         Logger.uploadLogs(context, true, "PASS\nModem already updated to 20.10.522.0.\n\n");
                         break;
-                    case "20.00.522.7":
+                    case V20_00_522_7_STR:
                         info = "Device has 20.00.522.7. Trying to update.";
                         context.updateTvInfo(info);
                         Logger.addLoggingInfo(info);
@@ -240,7 +242,7 @@ public class Updater {
                         updateFileType = V20_00_522_7;
                         updateModem();
                         break;
-                    case "20.00.522.4":
+                    case V20_00_522_4_STR:
                         info = "Device has 20.00.522.4. Trying to update.";
                         context.updateTvInfo(info);
                         Logger.addLoggingInfo(info);
@@ -255,7 +257,7 @@ public class Updater {
                         context.updateBackgroundColor(Color.RED);
                         Logger.addLoggingInfo(info);
                         context.updateTvWarning("Firmware not updated successfully.");
-                        startRild();
+                        configureRild(true);
 
                         Logger.uploadLogs(context, false, "FAIL\nNo update file for this modem version.\n\n");
 
@@ -270,7 +272,7 @@ public class Updater {
                 context.updateBackgroundColor(Color.RED);
                 Logger.addLoggingInfo(info);
                 context.updateTvWarning("Firmware not updated successfully.");
-                startRild();
+                configureRild(true);
 
                 Logger.uploadLogs(context, false, "FAIL\nNo update file for this modem version.\n\n");
 
@@ -302,7 +304,7 @@ public class Updater {
             context.updateBackgroundColor(Color.YELLOW);
             Logger.addLoggingInfo(info);
             context.updateTvWarning("Firmware not updated successfully.");
-            startRild();
+            configureRild(true);
 
             Logger.uploadLogs(context, false, "FAIL\nError loading update file or no update file found.\n\n");
 
@@ -367,6 +369,13 @@ public class Updater {
 
     private boolean updateModemFirmware() {
         int packetsSent = 0;
+
+        // Check to make sure the context and port aren't null.
+        if (context == null || port == null) {
+            Log.e(TAG, "Error sending delta: context or port is null.");
+            Logger.addLoggingInfo("Error sending delta: context or port is null.");
+            return false;
+        }
 
         // Try to connect to modem to send delta to modem
         String resultFromRequestToSend = port.writeRead("AT#OTAUPW\r");
@@ -574,9 +583,8 @@ public class Updater {
 
             // Upload results and reboot if needed.
             if (updated) {
-                startRild();
-                context.getSharedPreferences(SHARED_PREF_KEY, Context.MODE_PRIVATE).edit()
-                        .putBoolean(UPDATED_KEY, true).apply();
+                configureRild(true);
+                setUpdated(context, true);
 
                 context.updateBackgroundColor(Color.YELLOW);
                 context.updateTvInfo("Do not power off.  Sending logs");
