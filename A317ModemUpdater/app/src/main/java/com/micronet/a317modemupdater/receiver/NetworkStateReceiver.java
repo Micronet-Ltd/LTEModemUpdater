@@ -23,13 +23,7 @@ public class NetworkStateReceiver extends BroadcastReceiver {
             connected.set(true);
 
             if(Logger.isPrepared.get()) {
-                new Thread(new Runnable() {
-                    @Override
-                    public void run() {
-                        Logger.uploadSavedLogs(context);
-                        Log.d(TAG, "Connected to the internet and trying to upload saved logs.");
-                    }
-                }).start();
+                Logger.uploadSavedLogs(context);
             }
         } else if (connected.get() && !dataConnection) { // Did we lose our connection.
             connected.set(false);

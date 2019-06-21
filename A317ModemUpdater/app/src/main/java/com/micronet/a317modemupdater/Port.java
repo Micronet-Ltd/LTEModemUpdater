@@ -13,9 +13,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
@@ -23,19 +21,29 @@ import java.util.concurrent.TimeoutException;
 class Port {
 
     private static final String TAG = "Updater-Port";
+    private static final String READ_ERROR_STR = "ERROR";
+    private static final String PORT_PATH = "/dev/ttyACM0";
+    private static final int NUM_MODEM_TYPE_RETRIES = 10;
+    private static final int NUM_MODEM_VERSION_RETRIES = 10;
+    private static final int NUM_PORT_SETUP_RETRIES = 10;
+    private static final int SKIP_AVAILABLE_TIMEOUT = 500;
+    private static final int READ_FROM_PORT_TIEMOUT = 8000;
+    private static final int READ_FROM_PORT_EXTENDED_TIMEOUT = 10000;
+    private static final int READ_BYTES_SIZE = 2056;
+    private static final int PORT_BAUDRATE = 9600;
+    private static final int PORT_SETUP_WAIT = 200;
+    private static final int NO_BYTES_TO_READ = -1;
+    private static final int SKIP_AVAILABLE_WAIT = 50;
 
     @Keep
     private FileDescriptor mFd;
     private File port;
-
     private BufferedInputStream inputStream;
     private BufferedOutputStream outputStream;
-
     private byte[] readBytes;
     private char[] readChars;
 
-    private final int NUM_PORT_SETUP_RETRIES = 10;
-
+    // JNI Code
     static {
         System.loadLibrary("port");
     }
@@ -88,7 +96,7 @@ class Port {
         for (int i = 0; i < NUM_PORT_SETUP_RETRIES; i++) {
             if (port.exists()) {
                 // Set up the port with the correct flags.
-                mFd =open("/dev/ttyACM0", 9600);
+                mFd = open(PORT_PATH, PORT_BAUDRATE);
                 if (mFd != null) {
                     close();
                     if (openPort()) {
@@ -99,7 +107,7 @@ class Port {
             }
 
             try {
-                Thread.sleep(200);
+                Thread.sleep(PORT_SETUP_WAIT);
             } catch (InterruptedException e) {
                 Log.e(TAG, e.toString());
             }
@@ -114,7 +122,7 @@ class Port {
 
     String getModemType() {
         // Try 10 times to get the correct modem type
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < NUM_MODEM_TYPE_RETRIES; i++) {
             String modemType = writeRead("AT+CGMM\r").replace("\n", "").replace("OK", "").replace("AT+CGMM","");
 
             // Modem type must match something like LE910-NA1
@@ -130,7 +138,7 @@ class Port {
 
     String getModemVersion() {
         // Try 10 times to get the correct modem version
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < NUM_MODEM_VERSION_RETRIES; i++) {
             String modemFirmwareVersion = writeRead("AT+CGMR\r");
             String extendedSoftwareVersionNumber = writeRead("AT#CFVR\r");
 
@@ -157,25 +165,18 @@ class Port {
                         .replace("#CFVR: ", "");
     }
 
+    /////////////////////////////////////////////////////////
+    //////// IO Functions
+    /////////////////////////////////////////////////////////
+
     void write(byte[] arr, int off, int len) throws IOException {
         outputStream.write(arr, off, len);
         outputStream.flush();
     }
 
-    String writeRead(String output) {
-        writeToPort(output);
-        return readFromPort(8000);
-    }
-
-    String writeExtendedRead(String output, String extended) {
-        writeToPort(output);
-        return readFromPortExtended(extended);
-    }
-
-
     private void writeToPort(String stringToWrite) {
         try {
-            skipAvailable(500);
+            skipAvailable(SKIP_AVAILABLE_TIMEOUT);
 
             if (outputStream != null) {
                 outputStream.write(stringToWrite.getBytes());
@@ -189,7 +190,100 @@ class Port {
         }
     }
 
-    void skipAvailable(int timeout) {
+    private String readFromPort(int timeout) {
+        try {
+            // Try to read from port with timeout.
+            readBytes = new byte[READ_BYTES_SIZE];
+            Callable<Integer> readTask = new Callable<Integer>() {
+                @Override
+                public Integer call() throws Exception {
+                    return inputStream.read(readBytes);
+                }
+            };
+            int numBytesRead = Executors.newFixedThreadPool(1).submit(readTask).get(timeout, TimeUnit.MILLISECONDS);
+
+            // Handle what is returned.
+            if (numBytesRead == NO_BYTES_TO_READ) {
+                return "";
+            } else {
+                String readString = convertBytesToString(numBytesRead);
+                Log.d(TAG, "Received: " + readString);
+                Logger.addLoggingInfo("READ - " + readString);
+                return readString;
+            }
+        } catch (Exception e) {
+            Log.e(TAG, e.toString());
+            return READ_ERROR_STR;
+        }
+    }
+
+    String writeRead(String output) {
+        writeToPort(output);
+        return readFromPort(READ_FROM_PORT_TIEMOUT);
+    }
+
+    String writeExtendedRead(String output, String extended) {
+        writeToPort(output);
+        return readFromPortExtended(extended);
+    }
+
+    private String readFromPortExtended(final String str) {
+        final StringBuilder sb = new StringBuilder();
+
+        try {
+            Callable<String> readTask = new Callable<String>() {
+                @Override
+                public String call() {
+                    boolean continueLoop = true;
+                    while (continueLoop) {
+                        try {
+                            int numBytesRead = inputStream.read(readBytes);
+
+                            if (numBytesRead == NO_BYTES_TO_READ) {
+                                Log.d(TAG, "No bytes to read from input stream.");
+                                continueLoop = false;
+                            } else {
+                                // Get string from read bytes
+                                String readString = convertBytesToString(numBytesRead);
+                                sb.append(readString);
+                                Log.d(TAG, "Received: " + readString + ".");
+                                Log.d(TAG, "Full string builder from extended: " + sb.toString());
+
+                                // Check to see if output contains the string we are looking for.
+                                if (sb.length() > 0 && sb.toString().contains(str)) {
+                                    continueLoop = false;
+                                }
+                            }
+                        } catch (Exception e) {
+                            Log.e(TAG, e.toString());
+                            return READ_ERROR_STR;
+                        }
+                    }
+                    return sb.toString();
+                }
+            };
+
+            Executors.newFixedThreadPool(1).submit(readTask).get(READ_FROM_PORT_EXTENDED_TIMEOUT, TimeUnit.MILLISECONDS);
+        } catch (Exception e) {
+            Log.e(TAG, "Looking for " + str + ", " + e.toString());
+            return sb.toString();
+        }
+
+        Logger.addLoggingInfo("READ - " + sb.toString());
+        return sb.toString();
+    }
+
+    private String convertBytesToString(int numBytesRead) {
+        readChars = new char[numBytesRead];
+
+        for (int i = 0; i < numBytesRead; i++) {
+            readChars[i] = (char) readBytes[i];
+        }
+
+        return new String(readChars);
+    }
+
+    private void skipAvailable(int timeout) {
         try {
             Callable<Void> readTask = new Callable<Void>() {
                 @Override
@@ -200,126 +294,16 @@ class Port {
                             long skipped = inputStream.skip(available);
                             Log.i(TAG, String.format("Skipped %d bytes", skipped));
                         }
-                        Thread.sleep(50);
+                        Thread.sleep(SKIP_AVAILABLE_WAIT);
                     }
                 }
             };
 
-            ExecutorService executor = Executors.newFixedThreadPool(1);
-            Future<Void> future = executor.submit(readTask);
-            future.get(timeout, TimeUnit.MILLISECONDS);
-        } catch (TimeoutException te) {
-            // Callable will timeout.
+            Executors.newFixedThreadPool(1).submit(readTask).get(timeout, TimeUnit.MILLISECONDS);
+        } catch (TimeoutException e) {
+            // Do nothing
         } catch (Exception e) {
             Log.e(TAG, e.toString());
         }
     }
-
-    private String readFromPort(int timeout) {
-        readBytes = new byte[2056];
-
-        try {
-            Callable<Integer> readTask = new Callable<Integer>() {
-                @Override
-                public Integer call() throws Exception {
-                    return inputStream.read(readBytes);
-                }
-            };
-
-            ExecutorService executor = Executors.newFixedThreadPool(1);
-
-            Future<Integer> future = executor.submit(readTask);
-            // Give read eight seconds to finish so it won't block for forever
-            int numBytesRead = future.get(timeout, TimeUnit.MILLISECONDS);
-
-            if (numBytesRead == -1) {
-                return "";
-            } else {
-                readChars = new char[numBytesRead];
-
-                for (int i = 0; i < numBytesRead; i++) {
-                    readChars[i] = (char) readBytes[i];
-                }
-
-                String readString = new String(readChars);
-
-                Log.d(TAG, "Received: " + readString);
-                Logger.addLoggingInfo("READ - " + readString);
-                return readString;
-            }
-
-        } catch (TimeoutException te) {
-            Log.i(TAG, "Timeout exception in read...");
-            return "ERROR";
-        } catch (Exception e) {
-            Log.e(TAG, e.toString());
-            return "ERROR";
-        }
-
-    }
-
-    private String readFromPortExtended(final String str) {
-        final StringBuilder sb = new StringBuilder();
-
-        try {
-            Callable<String> readTask = new Callable<String>() {
-                @Override
-                public String call() throws Exception {
-                    boolean continueLoop = true;
-
-                    while (continueLoop) {
-                        try {
-
-                            int numBytesRead = inputStream.read(readBytes);
-
-                            if (numBytesRead == -1) {
-                                Log.d(TAG, "Num bytes read is -1, stopping loop");
-                                continueLoop = false;
-                            } else {
-                                readChars = new char[numBytesRead];
-                                byte[] onlyReadBytes = new byte[numBytesRead];
-
-                                for (int i = 0; i < numBytesRead; i++) {
-                                    readChars[i] = (char) readBytes[i];
-                                    onlyReadBytes[i] = readBytes[i];
-                                }
-
-                                String readString = new String(readChars);
-
-                                sb.append(readString);
-
-                                Log.d(TAG, "Received: " + readString + ". Received Bytes: " + Arrays.toString(onlyReadBytes));
-                                Log.d(TAG, "Full string builder from extended: " + sb.toString());
-                            }
-
-                            if (sb.length() > 0 && sb.toString().contains(str)) {
-                                continueLoop = false;
-                            }
-                        } catch (Exception e) {
-                            Log.e(TAG, e.toString());
-                            return "error";
-                        }
-                    }
-                    return sb.toString();
-                }
-            };
-
-            ExecutorService executor = Executors.newFixedThreadPool(1);
-
-            Future<String> future = executor.submit(readTask);
-            // Give read ten seconds to finish so it won't block for forever
-            String result = future.get(10000, TimeUnit.MILLISECONDS);
-        } catch (TimeoutException te) {
-            Log.e(TAG, "Looking for " + str + ", " + te.toString());
-            return sb.toString();
-        } catch (Exception e) {
-            Log.e(TAG, "Looking for " + str + ", " + e.toString());
-            return sb.toString();
-        }
-
-        Logger.addLoggingInfo("READ - " + sb.toString());
-
-        return sb.toString();
-    }
-
 }

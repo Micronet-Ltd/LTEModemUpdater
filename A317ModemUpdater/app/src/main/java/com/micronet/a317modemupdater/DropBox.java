@@ -1,6 +1,7 @@
 package com.micronet.a317modemupdater;
 
 import android.os.Build;
+import android.text.TextUtils;
 import android.util.Log;
 import com.dropbox.core.DbxRequestConfig;
 import com.dropbox.core.NetworkIOException;
@@ -16,7 +17,7 @@ import java.nio.charset.Charset;
 class DropBox {
 
     private static final String TAG = "Updater-DropBox";
-    private static final String ACCESS_TOKEN = "LPPT11VZzEAAAAAAAAAA4ynGYT6dCM7XhuMS0YJcgt4fkehBOmlVAJTb8jhRPj3w";
+    private static final String ACCESS_TOKEN = "LPPT11VZzEAAAAAAAAAA_VL3lgbcqMMRovuthIInLx2_dAIBbfLUnoyP28JAyoNi";
     private static final String id = Build.SERIAL;
     private static DbxClientV2 client;
 
@@ -28,15 +29,14 @@ class DropBox {
      * @param dt The datetime of the precheck.
      * @return Whether or not upload was successful.
      */
-    synchronized static boolean uploadPreCheck(String dt) {
+    synchronized static boolean uploadPreCheck(String dt) throws IllegalArgumentException {
         // Input validation
-        if (dt == null || dt.equals("")) {
-            Log.d(TAG, "Invalid datetime for log.");
-            return false;
+        if (TextUtils.isEmpty(dt)) {
+            throw new IllegalArgumentException("Datetime must not be null or empty.");
         }
 
         // Try to upload log
-        String path = "/" + id + "/" + "PreCheck " + dt + ".txt";
+        String path = "/LTE Modem Updater/" + id + "/" + "PreCheck " + dt + ".txt";
         return uploadLog(path, getByteArrayInputStream("About to check modem firmware version."));
     }
 
@@ -47,18 +47,16 @@ class DropBox {
      * @param pass Whether the update was successful or not.
      * @return Whether or not upload was successful.
      */
-    synchronized static boolean uploadResult(String dt, String data, boolean pass) {
+    synchronized static boolean uploadResult(String dt, String data, boolean pass) throws IllegalArgumentException {
         // Input validation
-        if (dt == null || dt.equals("")) {
-            Log.d(TAG, "Invalid datetime for log.");
-            return false;
-        } else if (data == null || data.equals("")) {
-            Log.d(TAG, "Invalid data for log.");
-            return false;
+        if (TextUtils.isEmpty(dt)) {
+            throw new IllegalArgumentException("Datetime must not be null or empty.");
+        } else if (TextUtils.isEmpty(data)) {
+            throw new IllegalArgumentException("Data must not be null or empty.");
         }
 
         // Try to upload log
-        String path = "/" + id + "/" + (pass ? "PASS " : "FAIL ") + dt + ".txt";
+        String path = "/LTE Modem Updater/" + id + "/" + (pass ? "PASS " : "FAIL ") + dt + ".txt";
         return uploadLog(path, getByteArrayInputStream(data));
     }
 

@@ -30,8 +30,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class Logger {
 
     private static final String TAG = "Updater-Logger";
+    private static final int NUM_UPLOAD_RETRIES = 15;
+    private static final int UPLOAD_SLEEP_BETWEEN_ATTEMPTS = 60000;
+
     private static AtomicBoolean uploadRunning;
-    private static ExecutorService executorService;
     private static StringBuffer stringBuffer;
     static LogDatabase db;
 
@@ -69,19 +71,15 @@ public class Logger {
 
         // Start trying to upload logs
         uploadRunning.set(true);
-        executorService = Executors.newFixedThreadPool(1);
+        ExecutorService executorService = Executors.newFixedThreadPool(1);
         executorService.execute(getUploadRunnable(context, pass));
     }
 
     public static synchronized void uploadSavedLogs(Context context) {
-        if(isPrepared.get() && !uploadRunning.get() && !allLogsUploaded()){
+        if(isPrepared.get() && !uploadRunning.get()){
             uploadLogs(context, true, null);
         }else{
-            if(allLogsUploaded()){
-                Log.v(TAG, "All logs are already uploaded.");
-            }else {
-                Log.v(TAG, "Upload already running.");
-            }
+            Log.v(TAG, "Upload already running.");
         }
     }
 
@@ -101,16 +99,17 @@ public class Logger {
 
                 if(!logs.isEmpty()){
                     setUploaded(context, false);
+                } else {
+                    setUploaded(context, true);
+                    Log.d(TAG, "All logs already uploaded.");
+                    return;
                 }
 
                 Log.i(TAG, String.format("There are %d logs to upload.", logs.size()));
 
                 for (LogEntity log : logs) {
-                    // Initially backoff time 10 secs
-                    int timeoutPeriod = 10000;
                     Log.i(TAG, "Trying to upload log with id " + log.id + " from " + log.dt + ".");
-
-                    uploadHelper(log, timeoutPeriod);
+                    uploadHelper(log);
                 }
 
                 // Check if all logs where successfully updated
@@ -134,31 +133,36 @@ public class Logger {
         };
     }
 
-    private static void uploadHelper(LogEntity log, int timeoutPeriod) {
-        for (int i = 0; i < 5; i++) {
-            for (int j = 0; j < 5; j++) {
-                    // Try to upload logs to dropbox
-                    if (uploadResult(log.dt, log.summary, log.pass)) {
-                        Log.i(TAG, "Successfully uploaded logging information for log with id " + log.id + ".");
-                        if (db != null) {
-                            db.logDao().updateLogStatus(log.id);
-                        }
-                        return;
+    private static void uploadHelper(LogEntity log) {
+        // Try to upload log NUM_UPLOAD_RETIES times with UPLOAD_SLEEP_BETWEEN_ATTEMPTS sleeps between attempts.
+        for (int i = 0; i < NUM_UPLOAD_RETRIES; i++) {
+            // Try to upload logs to dropbox
+            try {
+                if (uploadResult(log.dt, log.summary, log.pass)) {
+                    Log.i(TAG, "Successfully uploaded logging information for log with id " + log.id + ".");
+                    if (db != null) {
+                        db.logDao().updateLogStatus(log.id);
                     }
-//                }
-
-                try {
-                    Thread.sleep(timeoutPeriod);
-                } catch (InterruptedException e) {
-                    Log.e(TAG, e.toString());
+                    return;
                 }
-            }
-            Log.i(TAG, "Not able to upload at this time. Trying again for log with id " + log.id + ".");
+            } catch (IllegalArgumentException e) {
+                Log.e(TAG, e.toString());
 
-            // Adjust timeout period
-            timeoutPeriod *= 2;
+                // Try to delete bad log from database
+                if (db != null) {
+                    db.logDao().deleteById(log.id);
+                }
+                return;
+            }
+
+            try {
+                Thread.sleep(UPLOAD_SLEEP_BETWEEN_ATTEMPTS);
+            } catch (InterruptedException e) {
+                Log.e(TAG, e.toString());
+            }
         }
 
+        // Logs couldn't be uploaded at this time, rely on network state receiver to upload when data connection is available.
         Log.e(TAG, "Not able to upload logging information for log with id " + log.id + ".");
     }
 

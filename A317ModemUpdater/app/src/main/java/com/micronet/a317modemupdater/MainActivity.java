@@ -25,11 +25,12 @@ import android.widget.Button;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
+import com.micronet.a317modemupdater.interfaces.UpdateState;
 import com.micronet.a317modemupdater.receiver.NetworkStateReceiver;
 import java.io.IOException;
 import java.util.Locale;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements UpdateState {
 
     private static final String TAG = "Updater-Main";
     private static final String UPDATE_SUCCESSFUL_ACTION = "com.micronet.dsc.resetrb.modemupdater.UPDATE_SUCCESSFUL_ACTION";
@@ -92,7 +93,7 @@ public class MainActivity extends AppCompatActivity {
             setUpUi();
             tvInfo.setText("Preparing to check modem version...");
 
-            updater = new Updater(this);
+            updater = new Updater(getApplicationContext(), this);
             updater.startUpdateProcess();
         }
     }
@@ -176,7 +177,7 @@ public class MainActivity extends AppCompatActivity {
     // **************************************************************************************
     // **************************************************************************************
 
-    void delayedShutdown(final int delaySeconds) {
+    public void delayedShutdown(final int delaySeconds) {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -201,7 +202,7 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
-    void cancelShutdown() {
+    public void cancelShutdown() {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -213,7 +214,140 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    void updateTvInfo(final String text) {
+    ///////////////////////////////////////////////////////
+    ////////////////// Update UI Methods //////////////////
+    ///////////////////////////////////////////////////////
+
+    @Override
+    public void couldNotConfigureRild() {
+        updateTvInfo("Error killing rild. Could not properly update modem firmware. Reboot device and try again.");
+        updateBackgroundColor(Color.YELLOW);
+    }
+
+    @Override
+    public void couldNotSetupPort() {
+        updateTvInfo("Could not setup the port properly for updating modem firmware. Reboot device and try again.");
+        updateBackgroundColor(Color.YELLOW);
+        updateTvWarning("Firmware not updated successfully.");
+    }
+
+    @Override
+    public void couldNotCommunicateWithModem() {
+        updateTvInfo("Error communicating with the modem. Cannot update modem.\nRestart and try again. Restarting rild.");
+        updateBackgroundColor(Color.YELLOW);
+        updateTvWarning("Firmware not updated successfully.");
+    }
+
+    @Override
+    public void initialModemTypeAndVersion(String modemType, String modemVersion) {
+        updateTvModemType(modemType);
+        updateTvModemVersion(modemVersion);
+    }
+
+    @Override
+    public void noUpdateFileForModem() {
+        updateTvInfo("Device's modem cannot be updated because there is no update file for this modem version.");
+        updateBackgroundColor(Color.RED);
+        updateTvWarning("Firmware not updated successfully.");
+    }
+
+    @Override
+    public void alreadyUpdated(String modemVersion) {
+        updateTvInfo("Device has " + modemVersion + ". Already updated.");
+        updateBackgroundColor(Color.GREEN);
+    }
+
+    @Override
+    public void attemptingToUpdate(String modemVersion) {
+        updateTvInfo("Device has " + modemVersion + ". Trying to update.");
+    }
+
+    @Override
+    public void sendingUpdateFileToModem() {
+        setProgressBarVisibility(View.VISIBLE);
+        updateTvInfo("Sending update file to modem...");
+    }
+
+    @Override
+    public void loadedUpdateFile(int max) {
+        setProgressBarMax(max);
+        setProgressBarProgress(0);
+    }
+
+    @Override
+    public void errorLoadingUpdateFile() {
+        updateTvInfo("Error loading update file or no update file found.");
+        updateBackgroundColor(Color.YELLOW);
+        updateTvWarning("Firmware not updated successfully.");
+    }
+
+    @Override
+    public void errorConnectingToModemToSendUpdateFile() {
+        updateTvInfo("Error updating modem firmware. Reboot device and try again.");
+        updateBackgroundColor(Color.RED);
+    }
+
+    @Override
+    public void updateSendProgress(int packetsSent) {
+        setProgressBarProgress(packetsSent);
+    }
+
+    @Override
+    public void errorFileNotSentSuccessfully() {
+        updateTvInfo("File not sent successfully. Reboot device and try again.");
+        updateBackgroundColor(Color.RED);
+    }
+
+    @Override
+    public void fileSentSuccessfully() {
+        updateTvInfo("File sent. Validating file.");
+    }
+
+    @Override
+    public void errorFileNotValidated() {
+        updateTvInfo("File not sent properly. Reboot device and try again.");
+        updateBackgroundColor(Color.RED);
+    }
+
+    @Override
+    public void fileValidatedSuccessfully() {
+        updateTvInfo("File validated.");
+    }
+
+    @Override
+    public void errorFileNotValidatedAndUpdateProcessNotStarting() {
+        updateTvInfo("Modem not updated successfully. Reboot device and try again.");
+        updateBackgroundColor(Color.RED);
+    }
+
+    @Override
+    public void updateProcessStarting() {
+        updateTvInfo("Waiting 2-5 minutes to check if modem updated properly.");
+    }
+
+    @Override
+    public void updatedModemFirmwareVersion(String modemVersion) {
+        updateTvModemVersion("Modem Version: " + modemVersion);
+    }
+
+    @Override
+    public void errorRestartModem() {
+        updateTvInfo("Trying to reboot modem to try again.");
+    }
+
+    @Override
+    public void successfullyUpdatedUploadingLogs() {
+        updateBackgroundColor(Color.YELLOW);
+        updateTvInfo("Do not power off. Sending logs");
+    }
+
+    @Override
+    public void failureUpdatingUploadingLogs() {
+        updateTvInfo("ERROR: Modem not upgraded successfully. Trying to upload logs.");
+        updateBackgroundColor(Color.RED);
+    }
+
+    private void updateTvInfo(final String text) {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -222,7 +356,7 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    void updateTvModemType(final String text) {
+    private void updateTvModemType(final String text) {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -231,7 +365,7 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    void updateTvModemVersion(final String text) {
+    private void updateTvModemVersion(final String text) {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -240,7 +374,7 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    void updateTvWarning(final String text) {
+    private void updateTvWarning(final String text) {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -249,7 +383,7 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    void updateBackgroundColor(final int color) {
+    private void updateBackgroundColor(final int color) {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -258,7 +392,7 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    void setSendProgress(final int progress) {
+    private void setSendProgress(final int progress) {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -267,7 +401,7 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    void setProgressBarVisibility(final int visibility) {
+    private void setProgressBarVisibility(final int visibility) {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -276,7 +410,7 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    void setProgressBarProgress(final int progress) {
+    private void setProgressBarProgress(final int progress) {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -285,7 +419,7 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    void setProgressBarMax(final int max) {
+    private void setProgressBarMax(final int max) {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
