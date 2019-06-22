@@ -2,6 +2,7 @@ package com.micronet.a317modemupdater.interfaces;
 
 public interface UpdateState {
 
+    void couldNotUploadPrecheck();
     void couldNotConfigureRild();
     void couldNotSetupPort();
     void couldNotCommunicateWithModem();

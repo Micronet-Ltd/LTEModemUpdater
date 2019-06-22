@@ -25,6 +25,8 @@ public class Updater {
     private final int V20_00_522_7 = 12;
     private final int V20_10_522_0 = 13;
     private final int REBOOT_DELAY = 600;
+    private final int PRECHECK_UPLOAD_RETRIES = 600;
+    private final int PRECHECK_UPLOAD_WAIT = 1000;
 
     private final String V20_00_034_4_STR = "20.00.034.4";
     private final String V20_00_034_6_STR = "20.00.034.6";
@@ -65,13 +67,21 @@ public class Updater {
 
         // Try to upload log stating that you will be trying to check and update modem.
         Logger.addLoggingInfo("About to try to upload precheck.");
-        for (int i = 0; i < 50; i++) {
+        String currentDatetime = getCurrentDatetime();
+        for (int i = 0; i < PRECHECK_UPLOAD_RETRIES; i++) {
             try {
-                if (uploadPreCheck(getCurrentDatetime())) {
+                if (uploadPreCheck(currentDatetime)) {
                     Log.i(TAG, "Uploaded precheck log to dropbox.");
                     break;
                 } else {
-                    sleep(100);
+                    if (i == PRECHECK_UPLOAD_RETRIES - 1) {
+                        Logger.addLoggingInfo("Could not upload logging information.");
+                        updateState.couldNotUploadPrecheck();
+                        updateState.delayedShutdown(REBOOT_DELAY);
+                        return;
+                    }
+
+                    sleep(PRECHECK_UPLOAD_WAIT);
                 }
             } catch (IllegalArgumentException e) {
                 Log.e(TAG, e.toString());
@@ -444,7 +454,7 @@ public class Updater {
 
         sleep(30000);
 
-        for (int i = 0; i < 90; i++) {
+        for (int i = 0; i < 45; i++) {
             port = new Port(PORT_PATH);
 
             if (!port.exists()) {

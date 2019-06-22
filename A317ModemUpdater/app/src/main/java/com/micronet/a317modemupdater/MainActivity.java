@@ -219,6 +219,12 @@ public class MainActivity extends AppCompatActivity implements UpdateState {
     ///////////////////////////////////////////////////////
 
     @Override
+    public void couldNotUploadPrecheck() {
+        updateTvInfo("Error uploading precheck. Not starting process to update modem.");
+        updateBackgroundColor(Color.YELLOW);
+    }
+
+    @Override
     public void couldNotConfigureRild() {
         updateTvInfo("Error killing rild. Could not properly update modem firmware. Reboot device and try again.");
         updateBackgroundColor(Color.YELLOW);
