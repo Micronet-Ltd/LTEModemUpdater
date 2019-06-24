@@ -1,10 +1,13 @@
 package com.micronet.a317modemupdater;
 
+import static com.micronet.a317modemupdater.Updater.REBOOT_DELAY;
 import static com.micronet.a317modemupdater.Utils.getImei;
 import static com.micronet.a317modemupdater.Utils.getSerial;
+import static com.micronet.a317modemupdater.Utils.isReboot;
 import static com.micronet.a317modemupdater.Utils.isUpdated;
 import static com.micronet.a317modemupdater.Utils.isUploaded;
 import static com.micronet.a317modemupdater.Utils.runShellCommand;
+import static com.micronet.a317modemupdater.Utils.setReboot;
 
 import android.content.Context;
 import android.content.Intent;
@@ -21,10 +24,12 @@ import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
 import android.view.View.OnClickListener;
-import android.widget.Button;
+import android.widget.CompoundButton;
+import android.widget.CompoundButton.OnCheckedChangeListener;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.widget.ToggleButton;
 import com.micronet.a317modemupdater.interfaces.UpdateState;
 import com.micronet.a317modemupdater.receiver.NetworkStateReceiver;
 import java.io.IOException;
@@ -41,7 +46,7 @@ public class MainActivity extends AppCompatActivity implements UpdateState {
     private TextView tvModemType;
     private TextView tvModemVersion;
     private TextView tvWarning;
-    private Button btnCancelShutdown;
+    private ToggleButton btnCancelShutdown;
     private ProgressBar progressBar;
     private ConstraintLayout mainLayout;
     private Updater updater;
@@ -145,11 +150,25 @@ public class MainActivity extends AppCompatActivity implements UpdateState {
         progressBar.getProgressDrawable().setColorFilter(Color.GREEN, android.graphics.PorterDuff.Mode.MULTIPLY);
 
         btnCancelShutdown.setVisibility(View.INVISIBLE);
-        btnCancelShutdown.setOnClickListener(new View.OnClickListener() {
+        btnCancelShutdown.setChecked(isReboot(context));
+
+        btnCancelShutdown.setOnCheckedChangeListener(new OnCheckedChangeListener() {
             @Override
-            public void onClick(View v) {
-                if(countDownTimer != null) {
-                    cancelShutdown();
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                if (isChecked) {
+                    // Reboot after trying to update
+                    setReboot(context, true);
+
+                    // Start shutdown process
+                    delayedShutdown(REBOOT_DELAY);
+                } else {
+                    // Don't reboot after trying to update
+                    setReboot(context, false);
+
+                    // Should be in reboot process, cancel
+                    if(countDownTimer != null) {
+                        cancelShutdown();
+                    }
                 }
             }
         });
@@ -178,6 +197,19 @@ public class MainActivity extends AppCompatActivity implements UpdateState {
     // **************************************************************************************
 
     public void delayedShutdown(final int delaySeconds) {
+        if (!isReboot(context)) {
+            Log.d(TAG, "Set to not reboot device.");
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    Toast.makeText(context, "Set to not reboot device. Click enable shutdown to start shutdown process.", Toast.LENGTH_LONG).show();
+                    btnCancelShutdown.setVisibility(View.VISIBLE);
+                    btnCancelShutdown.setEnabled(true);
+                }
+            });
+            return;
+        }
+
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -207,9 +239,7 @@ public class MainActivity extends AppCompatActivity implements UpdateState {
             @Override
             public void run() {
                 countDownTimer.cancel();
-                btnCancelShutdown.setVisibility(View.INVISIBLE);
-                btnCancelShutdown.setEnabled(false);
-                Toast.makeText(context, "Shutdown timer canceled.", Toast.LENGTH_LONG).show();
+                Toast.makeText(context, "Reboot process canceled.", Toast.LENGTH_LONG).show();
             }
         });
     }
@@ -343,8 +373,8 @@ public class MainActivity extends AppCompatActivity implements UpdateState {
 
     @Override
     public void successfullyUpdatedUploadingLogs() {
-        updateBackgroundColor(Color.YELLOW);
-        updateTvInfo("Do not power off. Sending logs");
+        updateBackgroundColor(Color.GREEN);
+        updateTvInfo("Successfully updated. Do not power off. Uploading logs.");
     }
 
     @Override

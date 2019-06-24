@@ -16,6 +16,7 @@ class Utils {
     static final String UPDATE_SUCCESSFUL = "com.micronet.dsc.resetrb.modemupdater.UPDATE_SUCCESSFUL_ACTION";
     static final String UPDATED_KEY = "Updated";
     static final String UPLOADED_KEY = "Uploaded";
+    static final String REBOOT_KEY = "Reboot";
     static final String SHARED_PREF_KEY = "LTEModemUpdater";
 
     // Make class not instantiable
@@ -45,6 +46,15 @@ class Utils {
 
     static synchronized void setUploaded(Context context, boolean uploaded) {
         context.getSharedPreferences(SHARED_PREF_KEY, Context.MODE_PRIVATE).edit().putBoolean(UPLOADED_KEY, uploaded).apply();
+    }
+
+    static synchronized void setReboot(Context context, boolean reboot) {
+        context.getSharedPreferences(SHARED_PREF_KEY, Context.MODE_PRIVATE).edit().putBoolean(REBOOT_KEY, reboot).apply();
+    }
+
+    static synchronized boolean isReboot(Context context) {
+        SharedPreferences sharedPreferences = context.getSharedPreferences(SHARED_PREF_KEY, Context.MODE_PRIVATE);
+        return sharedPreferences.getBoolean(REBOOT_KEY, true);
     }
 
     static synchronized boolean isUpdated(Context context) {

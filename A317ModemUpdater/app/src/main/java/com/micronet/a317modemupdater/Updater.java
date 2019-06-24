@@ -13,6 +13,7 @@ import java.io.InputStream;
 
 public class Updater {
     private static final String TAG = "Updater-Main";
+    static final int REBOOT_DELAY = 600;
 
     private final Context context;
     private final UpdateState updateState;
@@ -24,8 +25,7 @@ public class Updater {
     private final int V20_00_522_4 = 11;
     private final int V20_00_522_7 = 12;
     private final int V20_10_522_0 = 13;
-    private final int REBOOT_DELAY = 600;
-    private final int PRECHECK_UPLOAD_RETRIES = 600;
+    private final int PRECHECK_UPLOAD_RETRIES = 300;
     private final int PRECHECK_UPLOAD_WAIT = 1000;
 
     private final String V20_00_034_4_STR = "20.00.034.4";
