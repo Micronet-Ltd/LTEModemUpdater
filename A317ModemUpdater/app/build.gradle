@@ -11,8 +11,8 @@ android {
         applicationId "com.micronet.a317modemupdater"
         minSdkVersion 15
         targetSdkVersion 26
-        versionCode 28
-        versionName "1.7.5"
+        versionCode 29
+        versionName "1.7.6"
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
         externalNativeBuild {
             cmake {

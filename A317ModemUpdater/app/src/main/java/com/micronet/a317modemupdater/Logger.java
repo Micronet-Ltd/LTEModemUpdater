@@ -7,6 +7,7 @@ import static com.micronet.a317modemupdater.Utils.getSerial;
 import static com.micronet.a317modemupdater.Utils.isUpdated;
 import static com.micronet.a317modemupdater.Utils.sendUpdateSuccessfulBroadcast;
 import static com.micronet.a317modemupdater.Utils.setUploaded;
+import static com.micronet.a317modemupdater.Utils.uploadProperties;
 
 import android.arch.persistence.room.Room;
 import android.content.Context;
@@ -44,7 +45,7 @@ public class Logger {
         stringBuffer = new StringBuffer();
         uploadRunning = new AtomicBoolean(false);
 
-        logDeviceInformation();
+        logDeviceInformation(context);
         isPrepared.set(true);
     }
 
@@ -166,15 +167,18 @@ public class Logger {
         Log.e(TAG, "Not able to upload logging information for log with id " + log.id + ".");
     }
 
-    private static void logDeviceInformation() {
-        Logger.addLoggingInfo(String.format("OS Build string: %s", Build.FINGERPRINT));
+    private static void logDeviceInformation(Context context) {
+        // Only upload properties the first time. All times after do not upload properties to reduce file size.
+        if (uploadProperties(context)) {
+            Logger.addLoggingInfo(String.format("OS Build string: %s", Build.FINGERPRINT));
 
-        try {
-            for (String property : getDeviceProperties()) {
-                Logger.addLoggingInfo(property);
+            try {
+                for (String property : getDeviceProperties()) {
+                    Logger.addLoggingInfo(property);
+                }
+            } catch (Exception e) {
+                Log.e(TAG, e.toString());
             }
-        } catch (Exception e) {
-            Log.e(TAG, e.toString());
         }
     }
 

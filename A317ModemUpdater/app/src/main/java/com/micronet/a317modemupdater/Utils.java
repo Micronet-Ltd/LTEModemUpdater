@@ -17,6 +17,7 @@ class Utils {
     static final String UPDATED_KEY = "Updated";
     static final String UPLOADED_KEY = "Uploaded";
     static final String REBOOT_KEY = "Reboot";
+    static final String PROPERTIES_KEY = "Properties";
     static final String SHARED_PREF_KEY = "LTEModemUpdater";
 
     // Make class not instantiable
@@ -65,6 +66,17 @@ class Utils {
     static synchronized boolean isUploaded(Context context) {
         SharedPreferences sharedPreferences = context.getSharedPreferences(SHARED_PREF_KEY, Context.MODE_PRIVATE);
         return sharedPreferences.getBoolean(UPLOADED_KEY, false);
+    }
+
+    static synchronized boolean uploadProperties(Context context) {
+        // First time upload properties
+        boolean upload = context.getSharedPreferences(SHARED_PREF_KEY, Context.MODE_PRIVATE).getBoolean(PROPERTIES_KEY, true);
+        if (upload) {
+            // After first time do not upload properties again
+            context.getSharedPreferences(SHARED_PREF_KEY, Context.MODE_PRIVATE).edit().putBoolean(PROPERTIES_KEY, false).apply();
+        }
+
+        return upload;
     }
 
     static synchronized String getCurrentDatetime() {
