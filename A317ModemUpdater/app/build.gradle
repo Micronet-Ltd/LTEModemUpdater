@@ -12,7 +12,7 @@ android {
         minSdkVersion 15
         targetSdkVersion 26
         versionCode 29
-        versionName "1.7.6"
+        versionName "1.7.6-nologs"
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
         externalNativeBuild {
             cmake {

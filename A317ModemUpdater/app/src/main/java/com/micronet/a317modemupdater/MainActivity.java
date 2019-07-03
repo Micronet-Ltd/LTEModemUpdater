@@ -113,16 +113,16 @@ public class MainActivity extends AppCompatActivity implements UpdateState {
     protected void onStart() {
         super.onStart();
 
-        networkStateReceiver = new NetworkStateReceiver();
-        this.registerReceiver(networkStateReceiver, new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION));
+//        networkStateReceiver = new NetworkStateReceiver();
+//        this.registerReceiver(networkStateReceiver, new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION));
     }
 
     @Override
     protected void onStop() {
         super.onStop();
 
-        this.unregisterReceiver(networkStateReceiver);
-        networkStateReceiver = null;
+//        this.unregisterReceiver(networkStateReceiver);
+//        networkStateReceiver = null;
     }
 
     @Override

@@ -30,14 +30,16 @@ class DropBox {
      * @return Whether or not upload was successful.
      */
     synchronized static boolean uploadPreCheck(String dt) throws IllegalArgumentException {
-        // Input validation
-        if (TextUtils.isEmpty(dt)) {
-            throw new IllegalArgumentException("Datetime must not be null or empty.");
-        }
+        return true;
 
-        // Try to upload log
-        String path = "/LTE Modem Updater/" + id + "/" + "PreCheck " + dt + ".txt";
-        return uploadLog(path, getByteArrayInputStream("About to check modem firmware version."));
+//        // Input validation
+//        if (TextUtils.isEmpty(dt)) {
+//            throw new IllegalArgumentException("Datetime must not be null or empty.");
+//        }
+//
+//        // Try to upload log
+//        String path = "/LTE Modem Updater/" + id + "/" + "PreCheck " + dt + ".txt";
+//        return uploadLog(path, getByteArrayInputStream("About to check modem firmware version."));
     }
 
     /**
@@ -48,16 +50,18 @@ class DropBox {
      * @return Whether or not upload was successful.
      */
     synchronized static boolean uploadResult(String dt, String data, boolean pass) throws IllegalArgumentException {
-        // Input validation
-        if (TextUtils.isEmpty(dt)) {
-            throw new IllegalArgumentException("Datetime must not be null or empty.");
-        } else if (TextUtils.isEmpty(data)) {
-            throw new IllegalArgumentException("Data must not be null or empty.");
-        }
+        return true;
 
-        // Try to upload log
-        String path = "/LTE Modem Updater/" + id + "/" + (pass ? "PASS " : "FAIL ") + dt + ".txt";
-        return uploadLog(path, getByteArrayInputStream(data));
+//        // Input validation
+//        if (TextUtils.isEmpty(dt)) {
+//            throw new IllegalArgumentException("Datetime must not be null or empty.");
+//        } else if (TextUtils.isEmpty(data)) {
+//            throw new IllegalArgumentException("Data must not be null or empty.");
+//        }
+//
+//        // Try to upload log
+//        String path = "/LTE Modem Updater/" + id + "/" + (pass ? "PASS " : "FAIL ") + dt + ".txt";
+//        return uploadLog(path, getByteArrayInputStream(data));
     }
 
     ///////////////////////////////
