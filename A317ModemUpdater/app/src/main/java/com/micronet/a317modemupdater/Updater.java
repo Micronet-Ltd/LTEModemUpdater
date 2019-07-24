@@ -25,6 +25,8 @@ public class Updater {
     private final int V20_00_522_4 = 11;
     private final int V20_00_522_7 = 12;
     private final int V20_10_522_0 = 13;
+    private final int V20_00_522_9 = 14;
+    private final int V20_00_525_2 = 20;
     private final int PRECHECK_UPLOAD_RETRIES = 300;
     private final int PRECHECK_UPLOAD_WAIT = 1000;
 
@@ -34,7 +36,9 @@ public class Updater {
     private final String V20_10_034_0_STR = "20.10.034.0";
     private final String V20_00_522_4_STR = "20.00.522.4";
     private final String V20_00_522_7_STR = "20.00.522.7";
+    private final String V20_00_522_9_STR = "20.00.522.9";
     private final String V20_10_522_0_STR = "20.10.522.0";
+    private final String V20_00_525_2_STR = "20.00.525.2";
     private final String ATT_MODEM = "LE910-NA1";
     private final String VERIZON_MODEM = "LE910-SVL";
 
@@ -212,7 +216,7 @@ public class Updater {
                         updateState.noUpdateFileForModem();
 
                         Logger.uploadLogs(context, false, "FAIL\nNo update file for this modem version.\n\n");
-                        updateState.delayedShutdown(REBOOT_DELAY);
+//                        updateState.delayedShutdown(REBOOT_DELAY);
                         break;
                 }
                 break;
@@ -229,6 +233,31 @@ public class Updater {
                         // Upload results
                         updateFileType = V20_10_522_0;
                         Logger.uploadLogs(context, true, "PASS\nModem already updated to 20.10.522.0.\n\n");
+                        break;
+                    case V20_00_525_2_STR:
+                        info = "Device has 20.00.525.2. Already updated.";
+                        Logger.addLoggingInfo(info);
+                        configureRild(true);
+                        updateState.alreadyUpdated(V20_00_525_2_STR);
+
+                        setUpdated(context, true);
+
+                        // Upload results
+                        updateFileType = V20_00_525_2;
+                        Logger.uploadLogs(context, true, "PASS\nModem already updated to 20.00.525.2.\n\n");
+                        break;
+                    case V20_00_522_9_STR:
+//                        Logger.addLoggingInfo("Device has 20.00.522.9. Trying to update.");
+//                        updateState.attemptingToUpdate(V20_00_522_9_STR);
+//
+//                        // Update modem
+//                        updateFileType = V20_00_522_9;
+//                        updateModem();
+                        Logger.addLoggingInfo("Device's modem cannot be updated because there is no update file for this modem version 20.00.522.9.");
+                        configureRild(true);
+                        updateState.noUpdateFileForModem();
+
+                        Logger.uploadLogs(context, false, "FAIL\nNo update file for this modem version.\n\n");
                         break;
                     case V20_00_522_7_STR:
                         Logger.addLoggingInfo("Device has 20.00.522.7. Trying to update.");
@@ -252,7 +281,7 @@ public class Updater {
                         updateState.noUpdateFileForModem();
 
                         Logger.uploadLogs(context, false, "FAIL\nNo update file for this modem version.\n\n");
-                        updateState.delayedShutdown(REBOOT_DELAY);
+//                        updateState.delayedShutdown(REBOOT_DELAY);
                         break;
                 }
                 break;
@@ -262,7 +291,7 @@ public class Updater {
                 updateState.noUpdateFileForModem();
 
                 Logger.uploadLogs(context, false, "FAIL\nNo update file for this modem version.\n\n");
-                updateState.delayedShutdown(REBOOT_DELAY);
+//                updateState.delayedShutdown(REBOOT_DELAY);
                 break;
         }
     }
@@ -311,6 +340,9 @@ public class Updater {
             case V20_00_522_7:
                 updateInputStream = context.getResources().openRawResource(R.raw.update_522_7_to_10_522);
                 break;
+//            case V20_00_522_9:
+////                updateInputStream = context.getResources().openRawResource(R.raw.update_522_7_to_10_522);
+//                break;
             default:
                 String info = "ERROR: No update file selected properly. Cannot read in update file.";
                 Log.e(TAG, info);
