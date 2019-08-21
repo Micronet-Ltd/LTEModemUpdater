@@ -23,6 +23,7 @@ public class Updater {
     private final int V20_10_034_0 = 6;
     private final int V20_00_522_4 = 11;
     private final int V20_00_522_7 = 12;
+    private final int V20_00_522_9 = 13;
     private final int V20_00_525_2 = 21;
     private final int REBOOT_DELAY = 600;
 
@@ -191,6 +192,14 @@ public class Updater {
                         // Upload results
                         updateFileType = V20_00_525_2;
                         break;
+                    case "20.00.522.9":
+                        info = "Device has 20.00.522.9. Trying to update.";
+                        context.updateTvInfo(info);
+
+                        // Update modem
+                        updateFileType = V20_00_522_9;
+                        updateModem();
+                        break;
                     case "20.00.522.7":
                         info = "Device has 20.00.522.7. Trying to update.";
                         context.updateTvInfo(info);
@@ -279,6 +288,9 @@ public class Updater {
                 break;
             case V20_00_522_7:
                 updateInputStream = context.getResources().openRawResource(R.raw.update_522_7_to_525_2);
+                break;
+            case V20_00_522_9:
+                updateInputStream = context.getResources().openRawResource(R.raw.update_522_9_to_525_2);
                 break;
             default:
                 String info = "ERROR: No update file selected properly. Cannot read in update file.";
@@ -437,7 +449,7 @@ public class Updater {
                     Log.d(TAG, "Version updated successfully.");
                     break;
                 }
-            } else if (updateFileType == V20_00_522_4 || updateFileType == V20_00_522_7) {
+            } else if (updateFileType == V20_00_522_4 || updateFileType == V20_00_522_7 || updateFileType == V20_00_522_9) {
                 if (updatedSoftwareVersion.contains("20.00.525") && updatedExtendedSoftwareVersion
                         .contains("#CFVR: 2")) { // Modem updated successfully
                     pass = true;
@@ -460,7 +472,7 @@ public class Updater {
         if (pass) {
             if (updateFileType == V20_00_034_4 || updateFileType == V20_00_034_6 || updateFileType == V20_00_034_10) {
                 context.updateTvInfo("SUCCESS: Device modem updated successfully to 20.10.034.0.");
-            } else if (updateFileType == V20_00_522_4 || updateFileType == V20_00_522_7) {
+            } else if (updateFileType == V20_00_522_4 || updateFileType == V20_00_522_7 || updateFileType == V20_00_522_9) {
                 context.updateTvInfo("SUCCESS: Device modem updated successfully to 20.00.525.2.");
             }
 
