@@ -1,9 +1,17 @@
 package com.micronet.a317modemupdater;
 
+import static com.micronet.a317modemupdater.Updater.REBOOT_DELAY;
+import static com.micronet.a317modemupdater.Utils.getImei;
+import static com.micronet.a317modemupdater.Utils.getSerial;
+import static com.micronet.a317modemupdater.Utils.isReboot;
+import static com.micronet.a317modemupdater.Utils.isUpdated;
+import static com.micronet.a317modemupdater.Utils.isUploaded;
+import static com.micronet.a317modemupdater.Utils.runShellCommand;
+import static com.micronet.a317modemupdater.Utils.setReboot;
+
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.graphics.Color;
 import android.net.ConnectivityManager;
@@ -13,35 +21,32 @@ import android.os.CountDownTimer;
 import android.os.PowerManager;
 import android.support.constraint.ConstraintLayout;
 import android.support.v7.app.AppCompatActivity;
-import android.telephony.TelephonyManager;
 import android.util.Log;
 import android.view.View;
 import android.view.View.OnClickListener;
-import android.widget.Button;
+import android.widget.CompoundButton;
+import android.widget.CompoundButton.OnCheckedChangeListener;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.widget.ToggleButton;
+import com.micronet.a317modemupdater.interfaces.UpdateState;
 import com.micronet.a317modemupdater.receiver.NetworkStateReceiver;
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.util.Locale;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements UpdateState {
 
     private static final String TAG = "Updater-Main";
     private static final String UPDATE_SUCCESSFUL_ACTION = "com.micronet.dsc.resetrb.modemupdater.UPDATE_SUCCESSFUL_ACTION";
     private static CountDownTimer countDownTimer;
-    static final String UPDATED_KEY = "Updated";
-    static final String UPLOADED_KEY = "Uploaded";
-    static final String SHARED_PREF_KEY = "LTEModemUpdater";
     private final Context context = this;
 
     private TextView tvInfo;
     private TextView tvModemType;
     private TextView tvModemVersion;
     private TextView tvWarning;
-    private Button btnCancelShutdown;
+    private ToggleButton btnCancelShutdown;
     private ProgressBar progressBar;
     private ConstraintLayout mainLayout;
     private Updater updater;
@@ -52,8 +57,8 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
 
         // First check to see if device is already updated and uploaded.
-        boolean updated = isUpdated();
-        boolean uploaded = isUploaded();
+        boolean updated = isUpdated(this);
+        boolean uploaded = isUploaded(this);
 
         // We check three cases:
         //  - If the modem is updated and logs are uploaded then don't start the application and send broadcast of a successful update.
@@ -93,7 +98,7 @@ public class MainActivity extends AppCompatActivity {
             setUpUi();
             tvInfo.setText("Preparing to check modem version...");
 
-            updater = new Updater(this);
+            updater = new Updater(getApplicationContext(), this);
             updater.startUpdateProcess();
         }
     }
@@ -145,32 +150,33 @@ public class MainActivity extends AppCompatActivity {
         progressBar.getProgressDrawable().setColorFilter(Color.GREEN, android.graphics.PorterDuff.Mode.MULTIPLY);
 
         btnCancelShutdown.setVisibility(View.INVISIBLE);
-        btnCancelShutdown.setOnClickListener(new View.OnClickListener() {
+        btnCancelShutdown.setChecked(isReboot(context));
+
+        btnCancelShutdown.setOnCheckedChangeListener(new OnCheckedChangeListener() {
             @Override
-            public void onClick(View v) {
-                if(countDownTimer != null) {
-                    cancelShutdown();
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                if (isChecked) {
+                    // Reboot after trying to update
+                    setReboot(context, true);
+
+                    // Start shutdown process
+                    delayedShutdown(REBOOT_DELAY);
+                } else {
+                    // Don't reboot after trying to update
+                    setReboot(context, false);
+
+                    // Should be in reboot process, cancel
+                    if(countDownTimer != null) {
+                        cancelShutdown();
+                    }
                 }
             }
         });
 
-        // Display Serial and IMEI
-        String serial = Build.SERIAL;
-        String imei = "unknown";
+        ((TextView)findViewById(R.id.tvSerial)).setText("Serial: " + getSerial());
+        ((TextView)findViewById(R.id.tvImei)).setText("IMEI: " + getImei(context));
 
-        TelephonyManager telephonyManager = (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
-        try {
-            if (telephonyManager.getDeviceId() != null) {
-                imei = telephonyManager.getDeviceId();
-            }
-        } catch (SecurityException e) {
-            Log.e(TAG, e.toString());
-        }
-
-        ((TextView)findViewById(R.id.tvSerial)).setText("Serial: " + serial);
-        ((TextView)findViewById(R.id.tvImei)).setText("IMEI: " + imei);
-
-        ((Button)findViewById(R.id.btnRedbendCheckIn)).setOnClickListener(new OnClickListener() {
+        findViewById(R.id.btnRedbendCheckIn).setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View v) {
                 try {
@@ -190,31 +196,20 @@ public class MainActivity extends AppCompatActivity {
     // **************************************************************************************
     // **************************************************************************************
 
-    private static String runShellCommand(String[] commands) throws IOException {
-        StringBuilder sb = new StringBuilder();
-
-        BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(Runtime.getRuntime().exec(commands).getInputStream()));
-        String line;
-        while ((line = bufferedReader.readLine()) != null) {
-            sb.append(line);
+    public void delayedShutdown(final int delaySeconds) {
+        if (!isReboot(context)) {
+            Log.d(TAG, "Set to not reboot device.");
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    Toast.makeText(context, "Set to not reboot device. Click enable shutdown to start shutdown process.", Toast.LENGTH_LONG).show();
+                    btnCancelShutdown.setVisibility(View.VISIBLE);
+                    btnCancelShutdown.setEnabled(true);
+                }
+            });
+            return;
         }
 
-        bufferedReader.close();
-
-        return sb.toString();
-    }
-
-    boolean isUpdated() {
-        SharedPreferences sharedPreferences = this.getSharedPreferences(SHARED_PREF_KEY, Context.MODE_PRIVATE);
-        return sharedPreferences.getBoolean(UPDATED_KEY, false);
-    }
-
-    boolean isUploaded() {
-        SharedPreferences sharedPreferences = this.getSharedPreferences(SHARED_PREF_KEY, Context.MODE_PRIVATE);
-        return sharedPreferences.getBoolean(UPLOADED_KEY, false);
-    }
-
-    void delayedShutdown(final int delaySeconds) {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -239,19 +234,156 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
-    void cancelShutdown() {
+    public void cancelShutdown() {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
                 countDownTimer.cancel();
-                btnCancelShutdown.setVisibility(View.INVISIBLE);
-                btnCancelShutdown.setEnabled(false);
-                Toast.makeText(context, "Shutdown timer canceled.", Toast.LENGTH_LONG).show();
+                Toast.makeText(context, "Reboot process canceled.", Toast.LENGTH_LONG).show();
             }
         });
     }
 
-    void updateTvInfo(final String text) {
+    ///////////////////////////////////////////////////////
+    ////////////////// Update UI Methods //////////////////
+    ///////////////////////////////////////////////////////
+
+    @Override
+    public void couldNotUploadPrecheck() {
+        updateTvInfo("Error uploading precheck. Not starting process to update modem.");
+        updateBackgroundColor(Color.YELLOW);
+    }
+
+    @Override
+    public void couldNotConfigureRild() {
+        updateTvInfo("Error killing rild. Could not properly update modem firmware. Reboot device and try again.");
+        updateBackgroundColor(Color.YELLOW);
+    }
+
+    @Override
+    public void couldNotSetupPort() {
+        updateTvInfo("Could not setup the port properly for updating modem firmware. Reboot device and try again.");
+        updateBackgroundColor(Color.YELLOW);
+        updateTvWarning("Firmware not updated successfully.");
+    }
+
+    @Override
+    public void couldNotCommunicateWithModem() {
+        updateTvInfo("Error communicating with the modem. Cannot update modem.\nRestart and try again. Restarting rild.");
+        updateBackgroundColor(Color.YELLOW);
+        updateTvWarning("Firmware not updated successfully.");
+    }
+
+    @Override
+    public void initialModemTypeAndVersion(String modemType, String modemVersion) {
+        updateTvModemType(modemType);
+        updateTvModemVersion(modemVersion);
+    }
+
+    @Override
+    public void noUpdateFileForModem() {
+        updateTvInfo("Device's modem cannot be updated because there is no update file for this modem version.");
+        updateBackgroundColor(Color.RED);
+        updateTvWarning("Firmware not updated successfully.");
+    }
+
+    @Override
+    public void alreadyUpdated(String modemVersion) {
+        updateTvInfo("Device has " + modemVersion + ". Already updated.");
+        updateBackgroundColor(Color.GREEN);
+    }
+
+    @Override
+    public void attemptingToUpdate(String modemVersion) {
+        updateTvInfo("Device has " + modemVersion + ". Trying to update.");
+    }
+
+    @Override
+    public void sendingUpdateFileToModem() {
+        setProgressBarVisibility(View.VISIBLE);
+        updateTvInfo("Sending update file to modem...");
+    }
+
+    @Override
+    public void loadedUpdateFile(int max) {
+        setProgressBarMax(max);
+        setProgressBarProgress(0);
+    }
+
+    @Override
+    public void errorLoadingUpdateFile() {
+        updateTvInfo("Error loading update file or no update file found.");
+        updateBackgroundColor(Color.YELLOW);
+        updateTvWarning("Firmware not updated successfully.");
+    }
+
+    @Override
+    public void errorConnectingToModemToSendUpdateFile() {
+        updateTvInfo("Error updating modem firmware. Reboot device and try again.");
+        updateBackgroundColor(Color.RED);
+    }
+
+    @Override
+    public void updateSendProgress(int packetsSent) {
+        setProgressBarProgress(packetsSent);
+    }
+
+    @Override
+    public void errorFileNotSentSuccessfully() {
+        updateTvInfo("File not sent successfully. Reboot device and try again.");
+        updateBackgroundColor(Color.RED);
+    }
+
+    @Override
+    public void fileSentSuccessfully() {
+        updateTvInfo("File sent. Validating file.");
+    }
+
+    @Override
+    public void errorFileNotValidated() {
+        updateTvInfo("File not sent properly. Reboot device and try again.");
+        updateBackgroundColor(Color.RED);
+    }
+
+    @Override
+    public void fileValidatedSuccessfully() {
+        updateTvInfo("File validated.");
+    }
+
+    @Override
+    public void errorFileNotValidatedAndUpdateProcessNotStarting() {
+        updateTvInfo("Modem not updated successfully. Reboot device and try again.");
+        updateBackgroundColor(Color.RED);
+    }
+
+    @Override
+    public void updateProcessStarting() {
+        updateTvInfo("Waiting 2-5 minutes to check if modem updated properly.");
+    }
+
+    @Override
+    public void updatedModemFirmwareVersion(String modemVersion) {
+        updateTvModemVersion("Modem Version: " + modemVersion);
+    }
+
+    @Override
+    public void errorRestartModem() {
+        updateTvInfo("Trying to reboot modem to try again.");
+    }
+
+    @Override
+    public void successfullyUpdatedUploadingLogs() {
+        updateBackgroundColor(Color.GREEN);
+        updateTvInfo("Successfully updated. Do not power off. Uploading logs.");
+    }
+
+    @Override
+    public void failureUpdatingUploadingLogs() {
+        updateTvInfo("ERROR: Modem not upgraded successfully. Trying to upload logs.");
+        updateBackgroundColor(Color.RED);
+    }
+
+    private void updateTvInfo(final String text) {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -260,7 +392,7 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    void updateTvModemType(final String text) {
+    private void updateTvModemType(final String text) {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -269,7 +401,7 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    void updateTvModemVersion(final String text) {
+    private void updateTvModemVersion(final String text) {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -278,7 +410,7 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    void updateTvWarning(final String text) {
+    private void updateTvWarning(final String text) {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -287,7 +419,7 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    void updateBackgroundColor(final int color) {
+    private void updateBackgroundColor(final int color) {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -296,7 +428,7 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    void setSendProgress(final int progress) {
+    private void setSendProgress(final int progress) {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -305,7 +437,7 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    void setProgressBarVisibility(final int visibility) {
+    private void setProgressBarVisibility(final int visibility) {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -314,7 +446,7 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    void setProgressBarProgress(final int progress) {
+    private void setProgressBarProgress(final int progress) {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -323,7 +455,7 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    void setProgressBarMax(final int max) {
+    private void setProgressBarMax(final int max) {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
