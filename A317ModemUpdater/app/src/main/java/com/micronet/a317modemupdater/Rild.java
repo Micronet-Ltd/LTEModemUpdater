@@ -1,9 +1,9 @@
 package com.micronet.a317modemupdater;
 
+import static com.micronet.a317modemupdater.Utils.runShellCommand;
+
 import android.util.Log;
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 
 /**
  * Contains static methods for starting and stopping rild
@@ -12,26 +12,22 @@ class Rild {
 
     private final static String TAG = "Updater-Rild";
 
-    /**
-     * Tries to start rild, retries up to 10 times.
-     *
-     * @return Whether or not rild was started.
-     */
-    static boolean startRild() {
+    static boolean configureRild(boolean tryToStart) {
         for (int i = 0; i < 10; i++) {
             try {
-                // Start rild
-                runShellCommand(new String[]{"/system/bin/setprop", "ctl.start", "ril-daemon"});
+                // Start or stop rild
+                runShellCommand(new String[]{"/system/bin/setprop", (tryToStart? "ctl.start": "ctl.stop"), "ril-daemon"});
 
-                // Check to make sure that rild is running
+                // Check state of rild
                 String output = runShellCommand(new String[]{"/system/bin/getprop"});
 
-                if (output.toLowerCase().contains("[init.svc.ril-daemon]: [running]")) {
-                    Log.i(TAG, "Rild started");
-                    Logger.addLoggingInfo("Rild started");
+                if (output.toLowerCase().contains((tryToStart? "[init.svc.ril-daemon]: [running]": "[init.svc.ril-daemon]: [stopped]"))) {
+                    String loggingOutput = (tryToStart? "Rild started": "Rild stopped");
+                    Log.i(TAG, loggingOutput);
+                    Logger.addLoggingInfo(loggingOutput);
                     return true;
                 } else {
-                    Log.d(TAG, "Rild not started correctly, trying again.");
+                    Log.d(TAG, "Rild not " + (tryToStart? "started": "stopped") + " correctly, trying again.");
                     try {
                         Thread.sleep(100);
                     } catch (InterruptedException e) {
@@ -39,68 +35,14 @@ class Rild {
                     }
                 }
             } catch (IOException e) {
-                Log.e(TAG, "Error rild not started correctly" + e.toString());
-                Logger.addLoggingInfo("Error starting rild: " + e.toString());
+                Log.e(TAG, "Error rild not " + (tryToStart? "started": "stopped") + " correctly" + e.toString());
+                Logger.addLoggingInfo("Error " + (tryToStart? "starting": "stopping") + " rild: " + e.toString());
                 return false;
             }
         }
 
-        Log.e(TAG, "Error rild not started correctly.");
-        Logger.addLoggingInfo("Error starting rild.");
+        Log.e(TAG, "Error rild not " + (tryToStart? "started": "stopped") + " correctly.");
+        Logger.addLoggingInfo("Error " + (tryToStart? "starting": "stopping") + " rild.");
         return false;
-    }
-
-    /**
-     * Tries to kill rild, retries up to 10 times.
-     *
-     * @return Whether or not rild was killed.
-     */
-    static boolean stopRild() {
-        for (int i = 0; i < 10; i++) {
-            try {
-                // Start rild
-                runShellCommand(new String[]{"/system/bin/setprop", "ctl.stop", "ril-daemon"});
-
-                // Check to make sure that rild is running
-                String output = runShellCommand(new String[]{"/system/bin/getprop"});
-
-                if (output.toLowerCase().contains("[init.svc.ril-daemon]: [stopped]")) {
-                    Log.i(TAG, "Rild stopped");
-                    Logger.addLoggingInfo("Rild stopped");
-                    return true;
-                } else {
-                    Log.d(TAG, "Rild not stopped correctly, trying again.");
-                    try {
-                        Thread.sleep(100);
-                    } catch (InterruptedException e) {
-                        Log.e(TAG, e.toString());
-                    }
-                }
-            } catch (IOException e) {
-                Log.e(TAG, "Error rild not stopped correctly" + e.toString());
-                Logger.addLoggingInfo("Error stopping rild: " + e.toString());
-                startRild();
-                return false;
-            }
-        }
-
-        Log.e(TAG, "Error rild not stopped correctly");
-        Logger.addLoggingInfo("Error stopping rild");
-        startRild();
-        return false;
-    }
-
-    private static String runShellCommand(String[] commands) throws IOException {
-        StringBuilder sb = new StringBuilder();
-
-        BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(Runtime.getRuntime().exec(commands).getInputStream()));
-        String line;
-        while ((line = bufferedReader.readLine()) != null) {
-            sb.append(line);
-        }
-
-        bufferedReader.close();
-
-        return sb.toString();
     }
 }

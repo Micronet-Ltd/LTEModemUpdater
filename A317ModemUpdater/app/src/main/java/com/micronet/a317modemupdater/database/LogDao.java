@@ -12,7 +12,7 @@ public interface LogDao {
     List<LogEntity> getAll();
 
     @Query("SELECT * FROM logs WHERE uploaded = 0")
-    List<LogEntity> getAllWhereNotUploaded();
+    List<LogEntity> getAllNotUploaded();
 
     @Query("SELECT * FROM logs WHERE id = :id")
     List<LogEntity> getById(int id);
