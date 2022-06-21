@@ -18,29 +18,15 @@ public class Updater {
     private final Context context;
     private final UpdateState updateState;
     private final String PORT_PATH = "/dev/ttyACM0";
-    private final int V20_00_034_4 = 3;
-    private final int V20_00_034_6 = 4;
-    private final int V20_00_034_10 = 5;
-    private final int V20_10_034_0 = 6;
-    private final int V20_00_522_4 = 11;
-    private final int V20_00_522_7 = 12;
-    private final int V20_10_522_0 = 13;
-    private final int V20_00_522_9 = 14;
     private final int V20_00_525_2 = 20;
-    private final int PRECHECK_UPLOAD_RETRIES = 300;
+    private final int V20_00_528_1 = 30;
+    private final int PRECHECK_UPLOAD_RETRIES = 30;
     private final int PRECHECK_UPLOAD_WAIT = 1000;
 
-    private final String V20_00_034_4_STR = "20.00.034.4";
-    private final String V20_00_034_6_STR = "20.00.034.6";
-    private final String V20_00_034_10_STR = "20.00.034.10";
-    private final String V20_10_034_0_STR = "20.10.034.0";
-    private final String V20_00_522_4_STR = "20.00.522.4";
-    private final String V20_00_522_7_STR = "20.00.522.7";
-    private final String V20_00_522_9_STR = "20.00.522.9";
-    private final String V20_10_522_0_STR = "20.10.522.0";
     private final String V20_00_525_2_STR = "20.00.525.2";
+    private final String V20_00_528_1_STR = "20.00.528.1";
     private final String ATT_MODEM = "LE910-NA1";
-    private final String VERIZON_MODEM = "LE910-SVL";
+//    private final String VERIZON_MODEM = "LE910-SVL";
 
     private Port port;
     private byte[] updateFileBytes;
@@ -80,9 +66,9 @@ public class Updater {
                 } else {
                     if (i == PRECHECK_UPLOAD_RETRIES - 1) {
                         Logger.addLoggingInfo("Could not upload logging information.");
-                        updateState.couldNotUploadPrecheck();
-                        updateState.delayedShutdown(REBOOT_DELAY);
-                        return;
+//                        updateState.couldNotUploadPrecheck();
+//                        updateState.delayedShutdown(REBOOT_DELAY);
+//                        return;
                     }
 
                     sleep(PRECHECK_UPLOAD_WAIT);
@@ -173,106 +159,26 @@ public class Updater {
 
     private void checkIfUpdatesAreAvailable(String modemType, String modemFirmwareVersion) {
         switch (modemType) {
-            case VERIZON_MODEM:
-                switch (modemFirmwareVersion) {
-                    case V20_10_034_0_STR:
-                        Logger.addLoggingInfo("Device has 20.10.034.0. Already updated.");
-                        configureRild(true);
-                        updateState.alreadyUpdated(V20_10_034_0_STR);
-
-                        setUpdated(context, true);
-
-                        // Upload results.
-                        updateFileType = V20_10_034_0;
-                        Logger.uploadLogs(context, true, "PASS\nModem already updated to 20.10.034.0.\n\n");
-                        break;
-                    case V20_00_034_10_STR:
-                        Logger.addLoggingInfo("Device has 20.00.034.10. Trying to update.");
-                        updateState.attemptingToUpdate(V20_00_034_10_STR);
-
-                        // Update modem
-                        updateFileType = V20_00_034_10;
-                        updateModem();
-                        break;
-                    case V20_00_034_6_STR:
-                        Logger.addLoggingInfo("Device has 20.00.034.6. Trying to update.");
-                        updateState.attemptingToUpdate(V20_00_034_6_STR);
-
-                        // Update modem
-                        updateFileType = V20_00_034_6;
-                        updateModem();
-                        break;
-                    case V20_00_034_4_STR:
-                        Logger.addLoggingInfo("Device has 20.00.034.4. Trying to update.");
-                        updateState.attemptingToUpdate(V20_00_034_4_STR);
-
-                        // Update modem
-                        updateFileType = V20_00_034_4;
-                        updateModem();
-                        break;
-                    default:
-                        Logger.addLoggingInfo("Device's modem cannot be updated because there is no update file for this modem version.");
-                        configureRild(true);
-                        updateState.noUpdateFileForModem();
-
-                        Logger.uploadLogs(context, false, "FAIL\nNo update file for this modem version.\n\n");
-//                        updateState.delayedShutdown(REBOOT_DELAY);
-                        break;
-                }
-                break;
             case ATT_MODEM:
                 switch (modemFirmwareVersion) {
-                    case V20_10_522_0_STR:
-                        String info = "Device has 20.10.522.0. Already updated.";
+                    case V20_00_528_1_STR:
+                        String info = "Device has 20.00.528.1. Already updated.";
                         Logger.addLoggingInfo(info);
                         configureRild(true);
-                        updateState.alreadyUpdated(V20_10_522_0_STR);
+                        updateState.alreadyUpdated(V20_00_528_1_STR);
 
                         setUpdated(context, true);
 
                         // Upload results
-                        updateFileType = V20_10_522_0;
-                        Logger.uploadLogs(context, true, "PASS\nModem already updated to 20.10.522.0.\n\n");
+                        updateFileType = V20_00_528_1;
+                        Logger.uploadLogs(context, true, "PASS\nModem already updated to 20.00.528.1.\n\n");
                         break;
                     case V20_00_525_2_STR:
-                        info = "Device has 20.00.525.2. Already updated.";
-                        Logger.addLoggingInfo(info);
-                        configureRild(true);
-                        updateState.alreadyUpdated(V20_00_525_2_STR);
+                        Logger.addLoggingInfo("Device has 20.00.525.2. Trying to update.");
+                        updateState.attemptingToUpdate(V20_00_525_2_STR);
 
-                        setUpdated(context, true);
-
-                        // Upload results
+                        // Update modem
                         updateFileType = V20_00_525_2;
-                        Logger.uploadLogs(context, true, "PASS\nModem already updated to 20.00.525.2.\n\n");
-                        break;
-                    case V20_00_522_9_STR:
-//                        Logger.addLoggingInfo("Device has 20.00.522.9. Trying to update.");
-//                        updateState.attemptingToUpdate(V20_00_522_9_STR);
-//
-//                        // Update modem
-//                        updateFileType = V20_00_522_9;
-//                        updateModem();
-                        Logger.addLoggingInfo("Device's modem cannot be updated because there is no update file for this modem version 20.00.522.9.");
-                        configureRild(true);
-                        updateState.noUpdateFileForModem();
-
-                        Logger.uploadLogs(context, false, "FAIL\nNo update file for this modem version.\n\n");
-                        break;
-                    case V20_00_522_7_STR:
-                        Logger.addLoggingInfo("Device has 20.00.522.7. Trying to update.");
-                        updateState.attemptingToUpdate(V20_00_522_7_STR);
-
-                        // Update modem
-                        updateFileType = V20_00_522_7;
-                        updateModem();
-                        break;
-                    case V20_00_522_4_STR:
-                        Logger.addLoggingInfo("Device has 20.00.522.4. Trying to update.");
-                        updateState.attemptingToUpdate(V20_00_522_4_STR);
-
-                        // Update modem
-                        updateFileType = V20_00_522_4;
                         updateModem();
                         break;
                     default:
@@ -325,24 +231,9 @@ public class Updater {
 
         // Select correct delta update
         switch (updateFileType) {
-            case V20_00_034_4:
-                updateInputStream = context.getResources().openRawResource(R.raw.update_034_4_to_10_034);
+            case V20_00_525_2:
+                updateInputStream = context.getResources().openRawResource(R.raw.update_525_2_to_528_1);
                 break;
-            case V20_00_034_6:
-                updateInputStream = context.getResources().openRawResource(R.raw.update_034_6_to_10_034);
-                break;
-            case V20_00_034_10:
-                updateInputStream = context.getResources().openRawResource(R.raw.update_034_10_to_10_034);
-                break;
-            case V20_00_522_4:
-                updateInputStream = context.getResources().openRawResource(R.raw.update_522_4_to_10_522);
-                break;
-            case V20_00_522_7:
-                updateInputStream = context.getResources().openRawResource(R.raw.update_522_7_to_10_522);
-                break;
-//            case V20_00_522_9:
-////                updateInputStream = context.getResources().openRawResource(R.raw.update_522_7_to_10_522);
-//                break;
             default:
                 String info = "ERROR: No update file selected properly. Cannot read in update file.";
                 Log.e(TAG, info);
@@ -508,19 +399,8 @@ public class Updater {
 
             // 20.00.034 .4, .6, and .10 should go to 20.10.034.0
             // 20.00.522 .4 and .7 should go to 20.10.522.0
-            if (updateFileType == V20_00_034_4 || updateFileType == V20_00_034_6 || updateFileType == V20_00_034_10) {
-                if (updatedSoftwareVersion.contains("20.10.034") && updatedExtendedSoftwareVersion
-                        .contains("#CFVR: 0")) { // Modem updated successfully
-                    pass = true;
-                    updateState.updatedModemFirmwareVersion(formatModemVersion(updatedSoftwareVersion, updatedExtendedSoftwareVersion));
-
-                    port.closePort();
-                    Log.d(TAG, "Loop: " + i + ", Str is: " + updatedSoftwareVersion);
-                    Log.d(TAG, "Version updated successfully.");
-                    break;
-                }
-            } else if (updateFileType == V20_00_522_4 || updateFileType == V20_00_522_7) {
-                if (updatedSoftwareVersion.contains("20.10.522") && updatedExtendedSoftwareVersion
+            if (updateFileType == V20_00_525_2) {
+                if (updatedSoftwareVersion.contains("20.00.528.1") && updatedExtendedSoftwareVersion
                         .contains("#CFVR: 0")) { // Modem updated successfully
                     pass = true;
                     updateState.updatedModemFirmwareVersion(formatModemVersion(updatedSoftwareVersion, updatedExtendedSoftwareVersion));
@@ -541,10 +421,8 @@ public class Updater {
 
         // Handle whether the update succeeded or failed
         if (pass) {
-            if (updateFileType == V20_00_034_4 || updateFileType == V20_00_034_6 || updateFileType == V20_00_034_10) {
-                Logger.addLoggingInfo("SUCCESS: Device modem updated successfully to 20.10.034.0.");
-            } else if (updateFileType == V20_00_522_4 || updateFileType == V20_00_522_7) {
-                Logger.addLoggingInfo("SUCCESS: Device modem updated successfully to 20.10.522.0.");
+           if (updateFileType == V20_00_525_2) {
+                Logger.addLoggingInfo("SUCCESS: Device modem updated successfully to 20.00.528.1.");
             }
             return true;
         } else {
